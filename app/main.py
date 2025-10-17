@@ -1,14 +1,71 @@
 from fastapi import FastAPI
-from sqlmodel import SQLModel
-from app.database import engine
-from app.models import medicamento, farmaceutica, lote, paciente, ubs, sus, feedback, movimentacao
+from fastapi.middleware.cors import CORSMiddleware
+from database import create_db_and_tables
+from routers import (
+    user,   
+    farmaceutica,
+    medicamento,
+    lote,
+    distribuidor,
+    gestor,
+    feedback,
+    sus,
+    ubs,
+    paciente
+)
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Sistema de Gestão de Estoque de Medicamentos")
+# Lifespan para startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Código de startup
+    create_db_and_tables()
+    yield
+    # Código de shutdown (opcional)
+    # Por exemplo: fechar conexões, limpar recursos, etc.
 
-@app.on_event("startup")
-def on_startup():
-    SQLModel.metadata.create_all(engine)
+# Criar aplicação FastAPI
+app = FastAPI(
+    title="Sistema de Gestão de Medicamentos - SUS",
+    description="API REST para gerenciamento de medicamentos no sistema SUS",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Registrar todos os routers
+app.include_router(user.router)
+app.include_router(farmaceutica.router)
+app.include_router(medicamento.router)
+app.include_router(lote.router)
+app.include_router(distribuidor.router)
+app.include_router(gestor.router)
+app.include_router(sus.router)
+app.include_router(ubs.router)
+app.include_router(paciente.router)
+app.include_router(feedback.router)
 
 @app.get("/")
-def root():
-    return {"status": "API em funcionamento"}
+def read_root():
+    return {
+        "message": "Sistema de Gestão de Medicamentos",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "redoc": "/redoc"
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
