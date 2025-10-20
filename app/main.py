@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
-from routers import (
+from routes import (
     user,   
     farmaceutica,
     medicamento,
@@ -11,7 +11,9 @@ from routers import (
     feedback,
     sus,
     ubs,
-    paciente
+    paciente,
+    dashboard,
+    communication
 )
 from contextlib import asynccontextmanager
 
@@ -52,6 +54,7 @@ app.include_router(sus.router)
 app.include_router(ubs.router)
 app.include_router(paciente.router)
 app.include_router(feedback.router)
+app.include_router(dashboard.router)
 
 @app.get("/")
 def read_root():

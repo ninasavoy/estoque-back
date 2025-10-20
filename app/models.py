@@ -154,3 +154,26 @@ class Feedback(SQLModel, table=True):
     comentario: str
     tipo: str
     data: datetime
+
+
+# -------------------------
+# COMUNICAÇÃO
+# -------------------------
+class Mensagem(SQLModel, table=True):
+    id_mensagem: Optional[int] = Field(default=None, primary_key=True)
+    id_paciente: int = Field(foreign_key="user.id")
+    id_farmaceutica: int = Field(foreign_key="user.id")
+    id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
+    remetente_tipo: str  # 'paciente' ou 'farmaceutica'
+    mensagem: str
+    data_envio: datetime
+    lida: bool = False
+
+
+class ConteudoEducacional(SQLModel, table=True):
+    id_conteudo: Optional[int] = Field(default=None, primary_key=True)
+    id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
+    titulo: str
+    tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
+    conteudo: str
+    data_criacao: datetime
