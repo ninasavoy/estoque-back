@@ -22,8 +22,12 @@ class LoginResponse(BaseModel):
     permissions: list
 
 
-class RegisterRequest(UserBase):
-    pass
+class RegisterRequest(BaseModel):
+    nome: str
+    email: str
+    senha: str
+    tipo: str
+
 
 
 def hash_password(password: str) -> str:
@@ -65,7 +69,7 @@ def register(
     user = User(
         nome=user_data.nome,
         email=user_data.email,
-        senha_hash=hash_password(user_data.senha_hash),  # Assumindo que vem como senha plain
+        senha_hash=hash_password(user_data.senha),  # Assumindo que vem como senha plain
         tipo=user_data.tipo
     )
     

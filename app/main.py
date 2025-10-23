@@ -13,7 +13,7 @@ from routes import (
     ubs,
     paciente,
     dashboard,
-    communication
+    auth
 )
 from contextlib import asynccontextmanager
 
@@ -28,8 +28,8 @@ async def lifespan(app: FastAPI):
 
 # Criar aplicação FastAPI
 app = FastAPI(
-    title="Sistema de Gestão de Medicamentos - SUS",
-    description="API REST para gerenciamento de medicamentos no sistema SUS",
+    title="Sistema de Gestão de Medicamentos",
+    description="API REST para gerenciamento de medicamentos",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -55,6 +55,7 @@ app.include_router(ubs.router)
 app.include_router(paciente.router)
 app.include_router(feedback.router)
 app.include_router(dashboard.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():

@@ -8,7 +8,7 @@ import jwt
 from datetime import datetime, timedelta
 
 # Configurações JWT
-SECRET_KEY = "A DEFINIR"
+SECRET_KEY = "chave-secreta"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 horas
 
@@ -38,7 +38,7 @@ def decode_access_token(token: str):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado"
         )
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido"
