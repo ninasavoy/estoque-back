@@ -8,11 +8,23 @@ router = APIRouter(prefix="/farmaceuticas", tags=["Farmacêuticas"])
 
 
 @router.post("/", response_model=Farmaceutica)
-def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(get_session)):
-    session.add(farmaceutica)
+def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+
+    nova_farmaceutica = Farmaceutica(
+        nome=farmaceutica.nome,
+        cnpj=farmaceutica.cnpj,
+        contato=farmaceutica.contato,
+        id_usuario=current_user.id
+    )
+    session.add(nova_farmaceutica)
+
+    current_user.ativo = True
+    session.add(current_user)
     session.commit()
-    session.refresh(farmaceutica)
-    return farmaceutica
+
+    return nova_farmaceutica
 
 
 @router.get("/", response_model=List[Farmaceutica])
