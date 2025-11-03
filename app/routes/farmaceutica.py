@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
+from auth.dependencies import get_current_user
 from models import Farmaceutica
 from database import get_session
 
@@ -28,16 +29,44 @@ def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(g
 
 
 @router.get("/", response_model=List[Farmaceutica])
-def list_farmaceuticas(session: Session = Depends(get_session)):
+def list_farmaceuticas(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+
+        if not farmaceutica:
+            raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
+        
+        return [farmaceutica]
+    
     farmaceuticas = session.exec(select(Farmaceutica)).all()
     return farmaceuticas
 
 
 @router.get("/{farmaceutica_id}", response_model=Farmaceutica)
-def get_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session)):
+def get_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+
     farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not farmaceutica:
         raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
+
+    if current_user.tipo == "farmaceutica":
+        user_farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+
+        if not user_farmaceutica or user_farmaceutica.id_farmaceutica != farmaceutica_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Você só pode visualizar os dados da sua própria farmacêutica"
+            )
+
     return farmaceutica
 
 
@@ -45,27 +74,59 @@ def get_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_sessio
 def update_farmaceutica(
     farmaceutica_id: int, 
     farmaceutica: Farmaceutica, 
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session), 
+    current_user = Depends(get_current_user)
 ):
+    if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
     db_farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not db_farmaceutica:
         raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
-    
-    farmaceutica_data = farmaceutica.model_dump(exclude_unset=True, exclude={"id_farmaceutica"})
+
+    if current_user.tipo == "farmaceutica":
+        user_farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+
+        if not user_farmaceutica or user_farmaceutica.id_farmaceutica != farmaceutica_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Você só pode alterar os dados da sua própria farmacêutica"
+            )
+
+    farmaceutica_data = farmaceutica.model_dump(
+        exclude_unset=True,
+        exclude={"id_farmaceutica"}
+    )
     for key, value in farmaceutica_data.items():
         setattr(db_farmaceutica, key, value)
-    
+
     session.add(db_farmaceutica)
     session.commit()
     session.refresh(db_farmaceutica)
+
     return db_farmaceutica
 
 
 @router.delete("/{farmaceutica_id}")
-def delete_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session)):
+def delete_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
     farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not farmaceutica:
         raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
+    
+    if current_user.tipo == "farmaceutica":
+        user_farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+
+        if not user_farmaceutica or user_farmaceutica.id_farmaceutica != farmaceutica_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Você só pode deletar a sua própria farmacêutica"
+            )
     
     session.delete(farmaceutica)
     session.commit()

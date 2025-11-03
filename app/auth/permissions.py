@@ -175,14 +175,14 @@ PERMISSIONS_MAP: dict[UserType, Set[Permission]] = {
     },
     
     UserType.UBS: {
-        Permission.READ_LOTE,
+        # Permission.READ_LOTE,
         # Permission.CHECKIN_UBS_PACIENTE,
         Permission.VIEW_UBS_DASHBOARD,
         Permission.VIEW_ESTOQUE,
     },
     
     UserType.PACIENTE: {
-        Permission.READ_MEDICAMENTO,
+        # Permission.READ_MEDICAMENTO,
         Permission.CREATE_FEEDBACK,
         Permission.READ_OWN_FEEDBACKS,
     },
