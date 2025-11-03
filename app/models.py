@@ -16,6 +16,19 @@ class User(UserBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     ativo: bool = Field(default=False)
 
+
+# -------------------------
+# ADMINISTRADOR
+# -------------------------
+
+class Administrador(SQLModel, table=True):
+    id_administrador: Optional[int] = Field(default=None, primary_key=True)
+    nome: str
+    email: str
+    contato: str
+    id_usuario: int = Field(foreign_key="user.id")
+
+
 # -------------------------
 # FARMACÊUTICA / MEDICAMENTOS / LOTES
 # -------------------------
@@ -34,6 +47,8 @@ class Medicamento(SQLModel, table=True):
     nome: str
     ingestao: Optional[str] = None
     dosagem: Optional[str] = None
+    preco: float
+    alto_custo: bool
     id_farmaceutica: Optional[int] = Field(default=None, foreign_key="farmaceutica.id_farmaceutica")
 
     farmaceutica: Optional[Farmaceutica] = Relationship(back_populates="medicamentos")
@@ -105,7 +120,6 @@ class Paciente(SQLModel, table=True):
     ubs: Optional[UBS] = Relationship(back_populates="pacientes")
 
 
-
 # -------------------------
 # MOVIMENTAÇÕES
 # -------------------------
@@ -155,33 +169,21 @@ class Feedback(SQLModel, table=True):
 # -------------------------
 # COMUNICAÇÃO
 # -------------------------
-# class Mensagem(SQLModel, table=True):
-#     id_mensagem: Optional[int] = Field(default=None, primary_key=True)
-#     id_paciente: int = Field(foreign_key="user.id")
-#     id_farmaceutica: int = Field(foreign_key="user.id")
-#     id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
-#     remetente_tipo: str  # 'paciente' ou 'farmaceutica'
-#     mensagem: str
-#     data_envio: datetime
-#     lida: bool = False
+class Mensagem(SQLModel, table=True):
+    id_mensagem: Optional[int] = Field(default=None, primary_key=True)
+    id_paciente: int = Field(foreign_key="user.id")
+    id_farmaceutica: int = Field(foreign_key="user.id")
+    id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
+    remetente_tipo: str  # 'paciente' ou 'farmaceutica'
+    mensagem: str
+    data_envio: datetime
+    lida: bool = False
 
 
-# class ConteudoEducacional(SQLModel, table=True):
-#     id_conteudo: Optional[int] = Field(default=None, primary_key=True)
-#     id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
-#     titulo: str
-#     tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
-#     conteudo: str
-#     data_criacao: datetime
-
-
-# -------------------------
-# ADMINISTRADOR
-# -------------------------
-
-class Administrador(SQLModel, table=True):
-    id_administrador: Optional[int] = Field(default=None, primary_key=True)
-    nome: str
-    email: str
-    contato: str
-    id_usuario: int = Field(foreign_key="user.id")
+class ConteudoEducacional(SQLModel, table=True):
+    id_conteudo: Optional[int] = Field(default=None, primary_key=True)
+    id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
+    titulo: str
+    tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
+    conteudo: str
+    data_criacao: datetime

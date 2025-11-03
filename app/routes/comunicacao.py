@@ -2,52 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, Field, SQLModel
 from typing import Optional, List
 from datetime import datetime
-from models import User, Medicamento
+from models import ConteudoEducacional, Mensagem, User, Medicamento
 from database import get_session
-from auth.dependencies import get_current_user, get_current_paciente, get_current_farmaceutica
+from auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/comunicacao", tags=["Canal de Comunicação"])
-
-
-# Modelo para mensagens entre paciente e farmacêutica
-# class Mensagem(SQLModel, table=True):
-#     id_mensagem: Optional[int] = Field(default=None, primary_key=True)
-#     id_paciente: int = Field(foreign_key="user.id")
-#     id_farmaceutica: int = Field(foreign_key="user.id")
-#     id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
-#     remetente_tipo: str  # 'paciente' ou 'farmaceutica'
-#     mensagem: str
-#     data_envio: datetime
-#     lida: bool = False
-
-
-# class ConteudoEducacional(SQLModel, table=True):
-#     id_conteudo: Optional[int] = Field(default=None, primary_key=True)
-#     id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
-#     titulo: str
-#     tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
-#     conteudo: str
-#     data_criacao: datetime
-
-
-# class MensagemCreate(SQLModel):
-#     id_farmaceutica: int
-#     id_medicamento: Optional[int] = None
-#     mensagem: str
-
-
-# class MensagemResponse(SQLModel):
-#     id_mensagem: int
-#     id_paciente: int
-#     id_farmaceutica: int
-#     id_medicamento: Optional[int]
-#     remetente_tipo: str
-#     mensagem: str
-#     data_envio: datetime
-#     lida: bool
-#     remetente_nome: str
-#     destinatario_nome: str
-
 
 # # ========================
 # # ROTAS PARA PACIENTES
@@ -59,7 +18,7 @@ router = APIRouter(prefix="/comunicacao", tags=["Canal de Comunicação"])
 #     current_user: User = Depends(get_current_paciente),
 #     session: Session = Depends(get_session)
 # ):
-#     """Paciente envia mensagem para a farmacêutica"""
+
 #     # Verifica se a farmacêutica existe
 #     farmaceutica = session.get(User, mensagem_data.id_farmaceutica)
 #     if not farmaceutica or farmaceutica.tipo != "farmaceutica":
@@ -110,41 +69,6 @@ router = APIRouter(prefix="/comunicacao", tags=["Canal de Comunicação"])
 #         ))
     
 #     return resultado
-
-
-# @router.get("/paciente/conteudo-educacional/{medicamento_id}")
-# def paciente_ver_conteudo(
-#     medicamento_id: int,
-#     current_user: User = Depends(get_current_paciente),
-#     session: Session = Depends(get_session)
-# ):
-#     """Acessa conteúdo educacional sobre o medicamento"""
-#     conteudos = session.exec(
-#         select(ConteudoEducacional).where(
-#             ConteudoEducacional.id_medicamento == medicamento_id
-#         )
-#     ).all()
-    
-#     medicamento = session.get(Medicamento, medicamento_id)
-    
-#     return {
-#         "medicamento": {
-#             "id": medicamento.id_medicamento,
-#             "nome": medicamento.nome,
-#             "dosagem": medicamento.dosagem,
-#             "ingestao": medicamento.ingestao
-#         },
-#         "conteudos": [
-#             {
-#                 "id": c.id_conteudo,
-#                 "titulo": c.titulo,
-#                 "tipo": c.tipo,
-#                 "conteudo": c.conteudo,
-#                 "data_criacao": c.data_criacao
-#             }
-#             for c in conteudos
-#         ]
-#     }
 
 
 # @router.patch("/paciente/marcar-lida/{mensagem_id}")
@@ -271,63 +195,6 @@ router = APIRouter(prefix="/comunicacao", tags=["Canal de Comunicação"])
 #             for m in mensagens
 #         ]
 #     }
-
-
-# @router.post("/farmaceutica/criar-conteudo", response_model=ConteudoEducacional)
-# def farmaceutica_criar_conteudo(
-#     id_medicamento: int,
-#     titulo: str,
-#     tipo: str,
-#     conteudo: str,
-#     current_user: User = Depends(get_current_farmaceutica),
-#     session: Session = Depends(get_session)
-# ):
-#     """Cria conteúdo educacional sobre medicamento/doença"""
-#     # Valida o tipo
-#     tipos_validos = ["doenca", "medicamento", "uso_correto", "efeitos_colaterais"]
-#     if tipo not in tipos_validos:
-#         raise HTTPException(
-#             status_code=400,
-#             detail=f"Tipo inválido. Use: {', '.join(tipos_validos)}"
-#         )
-    
-#     # Verifica se o medicamento existe
-#     medicamento = session.get(Medicamento, id_medicamento)
-#     if not medicamento:
-#         raise HTTPException(status_code=404, detail="Medicamento não encontrado")
-    
-#     conteudo_obj = ConteudoEducacional(
-#         id_medicamento=id_medicamento,
-#         titulo=titulo,
-#         tipo=tipo,
-#         conteudo=conteudo,
-#         data_criacao=datetime.now()
-#     )
-    
-#     session.add(conteudo_obj)
-#     session.commit()
-#     session.refresh(conteudo_obj)
-#     return conteudo_obj
-
-
-# @router.get("/farmaceutica/conteudos-criados")
-# def farmaceutica_listar_conteudos(
-#     current_user: User = Depends(get_current_farmaceutica),
-#     session: Session = Depends(get_session)
-# ):
-#     """Lista todos os conteúdos educacionais criados"""
-#     conteudos = session.exec(select(ConteudoEducacional)).all()
-    
-#     return [
-#         {
-#             "id": c.id_conteudo,
-#             "medicamento_id": c.id_medicamento,
-#             "titulo": c.titulo,
-#             "tipo": c.tipo,
-#             "data_criacao": c.data_criacao
-#         }
-#         for c in conteudos
-#     ]
 
 
 # @router.patch("/farmaceutica/marcar-lida/{mensagem_id}")

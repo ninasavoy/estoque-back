@@ -95,6 +95,37 @@ def list_medicamentos_by_farmaceutica(
     ).all()
     return medicamentos
 
+
+@router.get("/alto_custo/", response_model=List[Medicamento])
+def list_medicamentos_alto_custo(
+    session: Session = Depends(get_session), 
+    current_user = Depends(get_current_user)
+):
+    if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
+        raise HTTPException(status_code=403, detail="Você não tem permissão para ver estes medicamentos")
+
+    medicamentos = session.exec(
+        select(Medicamento).where(Medicamento.alto_custo == True)
+    ).all() 
+
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+
+        if not farmaceutica:
+            raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
+        
+        medicamentos = session.exec(
+            select(Medicamento).where(
+                Medicamento.alto_custo == True,
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica
+            )
+        ).all()
+    
+    return medicamentos
+
+
 # ///////////////////////////////////////////////////////////
 
 

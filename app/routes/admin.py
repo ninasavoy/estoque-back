@@ -1,25 +1,32 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
+from auth.dependencies import get_current_user
 from models import Administrador
 from database import get_session
 
 router = APIRouter(prefix="/admin", tags=["Admins"])
 
 @router.post("/", response_model=Administrador)
-def create_admin(admin: Administrador, session: Session = Depends(get_session)):
+def create_admin(admin: Administrador, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito")
     session.add(admin)
     session.commit()
     session.refresh(admin)
     return admin
 
 @router.get("/", response_model=List[Administrador])
-def list_admins(session: Session = Depends(get_session)):
+def list_admins(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito")
     admins = session.exec(select(Administrador)).all()
     return admins
 
 @router.get("/{admin_id}", response_model=Administrador)
-def get_admin(admin_id: int, session: Session = Depends(get_session)):
+def get_admin(admin_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito")
     admin = session.get(Administrador, admin_id)
     if not admin:
         raise HTTPException(status_code=404, detail="Administrador não encontrado")
@@ -29,8 +36,11 @@ def get_admin(admin_id: int, session: Session = Depends(get_session)):
 def update_admin(
     admin_id: int, 
     admin: Administrador, 
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session), 
+    current_user = Depends(get_current_user)
 ):
+    if current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito")
     db_admin = session.get(Administrador, admin_id)
     if not db_admin:
         raise HTTPException(status_code=404, detail="Administrador não encontrado")
@@ -45,7 +55,10 @@ def update_admin(
     return db_admin
 
 @router.delete("/{admin_id}")
-def delete_admin(admin_id: int, session: Session = Depends(get_session)):
+def delete_admin(admin_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+    if current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+    
     admin = session.get(Administrador, admin_id)
     if not admin:
         raise HTTPException(status_code=404, detail="Administrador não encontrado")
