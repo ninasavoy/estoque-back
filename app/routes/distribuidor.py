@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
-from models import Distribuidor
+from models import Distribuidor, User
 from database import get_session
 from auth.dependencies import get_current_user
 
@@ -24,9 +24,11 @@ def create_distribuidor(
     session.commit()
     session.refresh(distribuidor)
 
-    current_user.ativo = True
-    session.add(current_user)
-    session.commit()
+    user = session.get(User, current_user.id)
+    if user:
+        user.ativo = True
+        session.add(user)
+        session.commit()
 
     return distribuidor
 

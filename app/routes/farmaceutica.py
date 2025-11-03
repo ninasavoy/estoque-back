@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
 from auth.dependencies import get_current_user
-from models import Farmaceutica
+from models import Farmaceutica, User
 from database import get_session
 
 router = APIRouter(prefix="/farmaceuticas", tags=["Farmacêuticas"])
@@ -21,9 +21,11 @@ def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(g
     )
     session.add(nova_farmaceutica)
 
-    current_user.ativo = True
-    session.add(current_user)
-    session.commit()
+    user = session.get(User, current_user.id)
+    if user:
+        user.ativo = True
+        session.add(user)
+        session.commit()
 
     return nova_farmaceutica
 
