@@ -7,13 +7,13 @@ from routes import (
     medicamento,
     lote,
     distribuidor,
-    gestor,
     feedback,
     sus,
     ubs,
     paciente,
     dashboard,
-    auth
+    auth,
+    admin
 )
 from contextlib import asynccontextmanager
 
@@ -49,13 +49,13 @@ app.include_router(farmaceutica.router)
 app.include_router(medicamento.router)
 app.include_router(lote.router)
 app.include_router(distribuidor.router)
-app.include_router(gestor.router)
 app.include_router(sus.router)
 app.include_router(ubs.router)
 app.include_router(paciente.router)
 app.include_router(feedback.router)
 app.include_router(dashboard.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():

@@ -1,7 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
-from typing import Optional
+from typing import List, Optional
+from auth.permissions import Permission, has_permission
 from models import User
 from database import get_session
 import jwt
@@ -13,7 +14,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 horas
 
 security = HTTPBearer()
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Cria um token JWT"""
@@ -45,12 +45,25 @@ def decode_access_token(token: str):
         )
 
 
+def require_permissions(required_permissions: List[Permission]):
+    async def dependency(current_user = Depends(get_current_user)):
+        for permission in required_permissions:
+            if not has_permission(current_user.tipo, permission):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Sem permissão: {permission.value}"
+                )
+        return current_user
+    return Depends(dependency)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: Session = Depends(get_session)
 ) -> User:
     """Dependency para obter o usuário atual a partir do token"""
     token = credentials.credentials
+    print(token)
     payload = decode_access_token(token)
     
     user_id: int = payload.get("sub")
@@ -69,7 +82,7 @@ async def get_current_user(
     
     return user
 
-
+# coisas um pouco redundantes
 async def get_current_farmaceutica(
     current_user: User = Depends(get_current_user)
 ) -> User:
@@ -142,3 +155,4 @@ async def get_current_user_optional(
         return await get_current_user(credentials, session)
     except HTTPException:
         return None
+    

@@ -14,7 +14,7 @@ class UserBase(SQLModel):
 
 class User(UserBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-
+    ativo: bool = Field(default=False)
 
 # -------------------------
 # FARMACÊUTICA / MEDICAMENTOS / LOTES
@@ -24,6 +24,7 @@ class Farmaceutica(SQLModel, table=True):
     nome: str
     cnpj: str
     contato: str
+    id_usuario: int = Field(foreign_key="user.id")
 
     medicamentos: List["Medicamento"] = Relationship(back_populates="farmaceutica")
 
@@ -58,17 +59,7 @@ class Distribuidor(SQLModel, table=True):
     nome: str
     localizacao: str
     contato: str
-
-
-# -------------------------
-# GESTOR
-# -------------------------
-class Gestor(SQLModel, table=True):
-    id_gestor: Optional[int] = Field(default=None, primary_key=True)
-    nome: str
-    sobrenome: str
-    cpf: str
-    contato: str
+    id_usuario: int = Field(foreign_key="user.id")
 
 
 # -------------------------
@@ -77,9 +68,10 @@ class Gestor(SQLModel, table=True):
 class SUS(SQLModel, table=True):
     id_sus: Optional[int] = Field(default=None, primary_key=True)
     regiao: str
-    id_gestor: Optional[int] = Field(default=None, foreign_key="gestor.id_gestor")
+    contato_gestor: str
+    nome_gestor: str
+    id_usuario: int = Field(foreign_key="user.id")
 
-    gestor: Optional[Gestor] = Relationship()
     ubs: List["UBS"] = Relationship(back_populates="sus")
 
 
@@ -92,6 +84,7 @@ class UBS(SQLModel, table=True):
     contato: str
     endereco: str
     id_sus: Optional[int] = Field(default=None, foreign_key="sus.id_sus")
+    id_usuario: int = Field(foreign_key="user.id")
 
     sus: Optional[SUS] = Relationship(back_populates="ubs")
     pacientes: List["Paciente"] = Relationship(back_populates="ubs")
@@ -107,8 +100,10 @@ class Paciente(SQLModel, table=True):
     cpf: str
     contato: str
     id_ubs: Optional[int] = Field(default=None, foreign_key="ubs.id_ubs")
+    id_usuario: int = Field(foreign_key="user.id")
 
     ubs: Optional[UBS] = Relationship(back_populates="pacientes")
+
 
 
 # -------------------------
@@ -119,10 +114,11 @@ class DistribuidorParaSUS(SQLModel, table=True):
     id_distribuidor: int = Field(foreign_key="distribuidor.id_distribuidor")
     id_sus: int = Field(foreign_key="sus.id_sus")
     id_lote: int = Field(foreign_key="lote.id_lote")
+    quantidade: int
     data_envio: datetime
     data_recebimento: Optional[datetime] = None
     status: str
-
+    
 
 class SUSParaUBS(SQLModel, table=True):
     id_spu: Optional[int] = Field(default=None, primary_key=True)
@@ -159,21 +155,33 @@ class Feedback(SQLModel, table=True):
 # -------------------------
 # COMUNICAÇÃO
 # -------------------------
-class Mensagem(SQLModel, table=True):
-    id_mensagem: Optional[int] = Field(default=None, primary_key=True)
-    id_paciente: int = Field(foreign_key="user.id")
-    id_farmaceutica: int = Field(foreign_key="user.id")
-    id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
-    remetente_tipo: str  # 'paciente' ou 'farmaceutica'
-    mensagem: str
-    data_envio: datetime
-    lida: bool = False
+# class Mensagem(SQLModel, table=True):
+#     id_mensagem: Optional[int] = Field(default=None, primary_key=True)
+#     id_paciente: int = Field(foreign_key="user.id")
+#     id_farmaceutica: int = Field(foreign_key="user.id")
+#     id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
+#     remetente_tipo: str  # 'paciente' ou 'farmaceutica'
+#     mensagem: str
+#     data_envio: datetime
+#     lida: bool = False
 
 
-class ConteudoEducacional(SQLModel, table=True):
-    id_conteudo: Optional[int] = Field(default=None, primary_key=True)
-    id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
-    titulo: str
-    tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
-    conteudo: str
-    data_criacao: datetime
+# class ConteudoEducacional(SQLModel, table=True):
+#     id_conteudo: Optional[int] = Field(default=None, primary_key=True)
+#     id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
+#     titulo: str
+#     tipo: str  # 'doenca', 'medicamento', 'uso_correto', 'efeitos_colaterais'
+#     conteudo: str
+#     data_criacao: datetime
+
+
+# -------------------------
+# ADMINISTRADOR
+# -------------------------
+
+class Administrador(SQLModel, table=True):
+    id_administrador: Optional[int] = Field(default=None, primary_key=True)
+    nome: str
+    email: str
+    contato: str
+    id_usuario: int = Field(foreign_key="user.id")

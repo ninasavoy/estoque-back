@@ -1,13 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
+from auth.dependencies import require_permissions
+from auth.permissions import Permission
 from models import Medicamento
 from database import get_session
 
 router = APIRouter(prefix="/medicamentos", tags=["Medicamentos"])
 
 
-@router.post("/", response_model=Medicamento)
+@router.post("/", response_model=Medicamento, dependencies=[require_permissions([Permission.CREATE_MEDICAMENTO])])
 def create_medicamento(medicamento: Medicamento, session: Session = Depends(get_session)):
     session.add(medicamento)
     session.commit()
@@ -15,13 +17,13 @@ def create_medicamento(medicamento: Medicamento, session: Session = Depends(get_
     return medicamento
 
 
-@router.get("/", response_model=List[Medicamento])
+@router.get("/", response_model=List[Medicamento], dependencies=[require_permissions([Permission.LIST_MEDICAMENTO])])
 def list_medicamentos(session: Session = Depends(get_session)):
     medicamentos = session.exec(select(Medicamento)).all()
     return medicamentos
 
 
-@router.get("/{medicamento_id}", response_model=Medicamento)
+@router.get("/{medicamento_id}", response_model=Medicamento, dependencies=[require_permissions([Permission.READ_MEDICAMENTO])])
 def get_medicamento(medicamento_id: int, session: Session = Depends(get_session)):
     medicamento = session.get(Medicamento, medicamento_id)
     if not medicamento:
@@ -29,7 +31,7 @@ def get_medicamento(medicamento_id: int, session: Session = Depends(get_session)
     return medicamento
 
 
-@router.get("/farmaceutica/{farmaceutica_id}", response_model=List[Medicamento])
+@router.get("/farmaceutica/{farmaceutica_id}", response_model=List[Medicamento], dependencies=[require_permissions([Permission.LIST_MEDICAMENTO])])
 def list_medicamentos_by_farmaceutica(
     farmaceutica_id: int, 
     session: Session = Depends(get_session)

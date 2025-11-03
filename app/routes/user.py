@@ -6,14 +6,14 @@ from database import get_session
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-
-@router.post("/", response_model=User)
-def create_user(user: UserBase, session: Session = Depends(get_session)):
-    db_user = User.model_validate(user)
-    session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
-    return db_user
+# meio que a register já faz isso
+# @router.post("/", response_model=User)
+# def create_user(user: UserBase, session: Session = Depends(get_session)):
+#     db_user = User.model_validate(user)
+#     session.add(db_user)
+#     session.commit()
+#     session.refresh(db_user)
+#     return db_user
 
 
 @router.get("/", response_model=List[User])

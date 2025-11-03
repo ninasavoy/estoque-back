@@ -29,17 +29,6 @@ def get_sus(sus_id: int, session: Session = Depends(get_session)):
     return sus
 
 
-@router.get("/gestor/{gestor_id}", response_model=List[SUS])
-def list_sus_by_gestor(
-    gestor_id: int, 
-    session: Session = Depends(get_session)
-):
-    sus_list = session.exec(
-        select(SUS).where(SUS.id_gestor == gestor_id)
-    ).all()
-    return sus_list
-
-
 @router.put("/{sus_id}", response_model=SUS)
 def update_sus(
     sus_id: int, 

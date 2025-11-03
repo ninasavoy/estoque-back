@@ -9,11 +9,9 @@ import hashlib
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
-
 class LoginRequest(BaseModel):
     email: str
     senha: str
-
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -21,13 +19,11 @@ class LoginResponse(BaseModel):
     user: dict
     permissions: list
 
-
 class RegisterRequest(BaseModel):
     nome: str
     email: str
     senha: str
     tipo: str
-
 
 
 def hash_password(password: str) -> str:
@@ -58,7 +54,7 @@ def register(
         )
     
     # Valida o tipo de usuário
-    valid_types = ["farmaceutica", "distribuidor", "sus", "ubs", "paciente"]
+    valid_types = ["farmaceutica", "distribuidor", "sus", "ubs", "paciente", "admin"]
     if user_data.tipo not in valid_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -70,7 +66,8 @@ def register(
         nome=user_data.nome,
         email=user_data.email,
         senha_hash=hash_password(user_data.senha),  # Assumindo que vem como senha plain
-        tipo=user_data.tipo
+        tipo=user_data.tipo,
+        ativo=False
     )
     
     session.add(user)
@@ -104,8 +101,14 @@ def login(
             detail="Email ou senha incorretos"
         )
     
+    if not user.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cadastro incompleto. Finalize o registro antes de fazer login."
+        )
+    
     # Cria o token
-    access_token = create_access_token(data={"sub": user.id})
+    access_token = create_access_token(data={"sub": str(user.id), "tipo": user.tipo})
     
     # Obtém as permissões do usuário
     permissions = get_user_permissions(user.tipo)
@@ -126,8 +129,9 @@ def login(
 @router.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     """Retorna informações do usuário atual"""
-    permissions = get_user_permissions(current_user.tipo)
     
+    permissions = get_user_permissions(current_user.tipo)
+
     return {
         "id": current_user.id,
         "nome": current_user.nome,
