@@ -14,31 +14,30 @@ def create_ubs(
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
-    if current_user.tipo not in ["admin", "sus", "ubs"]:
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores, SUS e UBS")
+    if current_user.ativo:
+        raise HTTPException(status_code=400, detail="Usuário já possui uma UBS cadastrada")
 
-    if current_user.tipo == "sus":
-        sus = session.exec(
-            select(SUS).where(SUS.id_usuario == current_user.id)
-        ).first()
-        if not sus:
-            raise HTTPException(status_code=404, detail="SUS não encontrado")
-        ubs.id_sus = sus.id_sus
-
-    if current_user.tipo == "ubs":
-        ubs.id_usuario = current_user.id
-
-    session.add(ubs)
-    session.commit()
-    session.refresh(ubs)
+    nova_ubs = UBS(
+        nome=ubs.nome,
+        contato=ubs.contato,
+        endereco=ubs.endereco,
+        id_sus=ubs.id_sus,
+        id_usuario=current_user.id
+    )
+    session.add(nova_ubs)
 
     user = session.get(User, current_user.id)
-    if user:
-        user.ativo = True
-        session.add(user)
-        session.commit()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    return ubs
+    user.ativo = True
+    session.add(user)
+
+    session.commit()
+    session.refresh(nova_ubs)
+    session.refresh(user)
+
+    return nova_ubs
 
 
 @router.get("/", response_model=List[UBS])

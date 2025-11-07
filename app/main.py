@@ -13,7 +13,8 @@ from routes import (
     paciente,
     dashboard,
     auth,
-    admin
+    admin, 
+    educacional,
 )
 from contextlib import asynccontextmanager
 
@@ -45,6 +46,8 @@ app.add_middleware(
 
 # Registrar todos os routers
 app.include_router(user.router)
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(farmaceutica.router)
 app.include_router(medicamento.router)
 app.include_router(lote.router)
@@ -54,8 +57,7 @@ app.include_router(ubs.router)
 app.include_router(paciente.router)
 app.include_router(feedback.router)
 app.include_router(dashboard.router)
-app.include_router(auth.router)
-app.include_router(admin.router)
+app.include_router(educacional.router)
 
 @app.get("/")
 def read_root():

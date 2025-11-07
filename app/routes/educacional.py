@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import SQLModel, Session, select
 from typing import List, Optional
 from datetime import datetime
-
 from models import ConteudoEducacional, Medicamento, User
 from database import get_session
-from auth import get_current_user
+from auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/conteudo", tags=["Conteúdo Educacional"])
 

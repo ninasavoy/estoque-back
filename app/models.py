@@ -9,7 +9,7 @@ class UserBase(SQLModel):
     nome: str
     email: str
     senha_hash: str
-    tipo: str  # 'farmaceutica', 'distribuidor', 'sus', 'ubs', 'paciente'
+    tipo: str  # 'farmaceutica', 'distribuidor', 'sus', 'ubs', 'paciente', 'admin'
 
 
 class User(UserBase, table=True):
@@ -42,6 +42,12 @@ class Farmaceutica(SQLModel, table=True):
     medicamentos: List["Medicamento"] = Relationship(back_populates="farmaceutica")
 
 
+class FarmaceuticaCreate(SQLModel):
+    nome: str
+    cnpj: str
+    contato: str
+
+
 class Medicamento(SQLModel, table=True):
     id_medicamento: Optional[int] = Field(default=None, primary_key=True)
     nome: str
@@ -49,7 +55,7 @@ class Medicamento(SQLModel, table=True):
     dosagem: Optional[str] = None
     preco: float
     alto_custo: bool
-    id_farmaceutica: Optional[int] = Field(default=None, foreign_key="farmaceutica.id_farmaceutica")
+    id_farmaceutica: int = Field(foreign_key="farmaceutica.id_farmaceutica")
 
     farmaceutica: Optional[Farmaceutica] = Relationship(back_populates="medicamentos")
     lotes: List["Lote"] = Relationship(back_populates="medicamento")
@@ -61,7 +67,7 @@ class Lote(SQLModel, table=True):
     data_fabricacao: datetime
     data_vencimento: datetime
     quantidade: int
-    id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
+    id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
 
     medicamento: Optional[Medicamento] = Relationship(back_populates="lotes")
 
@@ -76,6 +82,10 @@ class Distribuidor(SQLModel, table=True):
     contato: str
     id_usuario: int = Field(foreign_key="user.id")
 
+class DistribuidorCreate(SQLModel):
+    nome: str
+    localizacao: str
+    contato: str
 
 # -------------------------
 # SUS
@@ -89,6 +99,10 @@ class SUS(SQLModel, table=True):
 
     ubs: List["UBS"] = Relationship(back_populates="sus")
 
+class SUSCreate(SQLModel):
+    regiao: str
+    contato_gestor: str
+    nome_gestor: str
 
 # -------------------------
 # UBS
@@ -98,12 +112,17 @@ class UBS(SQLModel, table=True):
     nome: str
     contato: str
     endereco: str
-    id_sus: Optional[int] = Field(default=None, foreign_key="sus.id_sus")
+    id_sus: int = Field(foreign_key="sus.id_sus")
     id_usuario: int = Field(foreign_key="user.id")
 
     sus: Optional[SUS] = Relationship(back_populates="ubs")
     pacientes: List["Paciente"] = Relationship(back_populates="ubs")
 
+class UBSCreate(SQLModel):
+    nome: str
+    contato: str
+    endereco: str
+    id_sus: Optional[int] = Field(default=None, foreign_key="sus.id_sus")
 
 # -------------------------
 # PACIENTE
@@ -114,11 +133,17 @@ class Paciente(SQLModel, table=True):
     sobrenome: str
     cpf: str
     contato: str
-    id_ubs: Optional[int] = Field(default=None, foreign_key="ubs.id_ubs")
+    id_ubs: int = Field(foreign_key="ubs.id_ubs")
     id_usuario: int = Field(foreign_key="user.id")
 
     ubs: Optional[UBS] = Relationship(back_populates="pacientes")
 
+class PacienteCreate(SQLModel):
+    nome: str
+    sobrenome: str
+    cpf: str
+    contato: str
+    id_ubs: int = Field(foreign_key="ubs.id_ubs")
 
 # -------------------------
 # MOVIMENTAÇÕES
@@ -173,7 +198,7 @@ class Mensagem(SQLModel, table=True):
     id_mensagem: Optional[int] = Field(default=None, primary_key=True)
     id_paciente: int = Field(foreign_key="user.id")
     id_farmaceutica: int = Field(foreign_key="user.id")
-    id_medicamento: Optional[int] = Field(default=None, foreign_key="medicamento.id_medicamento")
+    id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
     remetente_tipo: str  # 'paciente' ou 'farmaceutica'
     mensagem: str
     data_envio: datetime

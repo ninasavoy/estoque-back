@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
-from app.auth.dependencies import get_current_user
-from models import Paciente, UBS, SUS, User
+from auth.dependencies import get_current_user
+from models import Paciente, UBS, SUS, PacienteCreate, User
 from database import get_session
 
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
@@ -10,35 +10,38 @@ router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
 
 @router.post("/", response_model=Paciente)
 def create_paciente(
-    paciente: Paciente,
+    paciente: PacienteCreate,
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
-    if current_user.tipo not in ["admin", "ubs", "paciente"]:
+    if current_user.tipo not in ["admin","paciente"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
 
-    if current_user.tipo == "ubs":
-        ubs = session.exec(
-            select(UBS).where(UBS.id_usuario == current_user.id)
-        ).first()
-        if not ubs:
-            raise HTTPException(status_code=404, detail="UBS não encontrada")
-        paciente.id_ubs = ubs.id_ubs
+    if current_user.ativo:
+        raise HTTPException(status_code=400, detail="Usuário já possui um cadastro de paciente")
 
-    if current_user.tipo == "paciente":
-        paciente.id_usuario = current_user.id
-
-    session.add(paciente)
-    session.commit()
-    session.refresh(paciente)
+    novo_paciente = Paciente(
+        nome=paciente.nome,
+        sobrenome=paciente.sobrenome,
+        cpf=paciente.cpf,
+        contato=paciente.contato,
+        id_ubs=paciente.id_ubs,
+        id_usuario=current_user.id
+    )
+    session.add(novo_paciente)
 
     user = session.get(User, current_user.id)
-    if user:
-        user.ativo = True
-        session.add(user)
-        session.commit()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    return paciente
+    user.ativo = True
+    session.add(user)
+
+    session.commit()
+    session.refresh(novo_paciente)
+    session.refresh(user)
+
+    return novo_paciente
 
 
 @router.get("/", response_model=List[Paciente])

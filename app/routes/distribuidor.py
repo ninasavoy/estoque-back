@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
-from models import Distribuidor, User
+from models import Distribuidor, DistribuidorCreate, User
 from database import get_session
 from auth.dependencies import get_current_user
 
@@ -10,27 +10,36 @@ router = APIRouter(prefix="/distribuidores", tags=["Distribuidores"])
 
 @router.post("/", response_model=Distribuidor)
 def create_distribuidor(
-    distribuidor: Distribuidor,
+    distribuidor: DistribuidorCreate,
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores")
 
-    if current_user.tipo == "distribuidor":
-        distribuidor.id_usuario = current_user.id
+    if current_user.ativo:
+        raise HTTPException(status_code=400, detail="Usuário já possui um distribuidor cadastrado")
 
-    session.add(distribuidor)
-    session.commit()
-    session.refresh(distribuidor)
+    novo_distribuidor = Distribuidor(
+        nome=distribuidor.nome,
+        cnpj=distribuidor.cnpj,
+        contato=distribuidor.contato,
+        id_usuario=current_user.id
+    )
+    session.add(novo_distribuidor)
 
     user = session.get(User, current_user.id)
-    if user:
-        user.ativo = True
-        session.add(user)
-        session.commit()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    return distribuidor
+    user.ativo = True
+    session.add(user)
+
+    session.commit()
+    session.refresh(novo_distribuidor)
+    session.refresh(user)
+
+    return novo_distribuidor
 
 
 @router.get("/", response_model=List[Distribuidor])

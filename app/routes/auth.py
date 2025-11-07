@@ -101,11 +101,11 @@ def login(
             detail="Email ou senha incorretos"
         )
     
-    if not user.ativo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cadastro incompleto. Finalize o registro antes de fazer login."
-        )
+    # if not user.ativo:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Cadastro incompleto. Finalize o registro antes de fazer login."
+    #     )
     
     # Cria o token
     access_token = create_access_token(data={"sub": str(user.id), "tipo": user.tipo})

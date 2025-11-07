@@ -2,16 +2,22 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
 from auth.dependencies import get_current_user
-from models import Farmaceutica, User
+from models import Farmaceutica, FarmaceuticaCreate, User
 from database import get_session
 
 router = APIRouter(prefix="/farmaceuticas", tags=["Farmacêuticas"])
 
 
 @router.post("/", response_model=Farmaceutica)
-def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
+def create_farmaceutica(farmaceutica: FarmaceuticaCreate, 
+                        session: Session = Depends(get_session), 
+                        current_user = Depends(get_current_user)):
+    
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+
+    if current_user.ativo:
+        raise HTTPException(status_code=400, detail="Usuário já possui uma farmacêutica cadastrada")
 
     nova_farmaceutica = Farmaceutica(
         nome=farmaceutica.nome,
@@ -22,10 +28,16 @@ def create_farmaceutica(farmaceutica: Farmaceutica, session: Session = Depends(g
     session.add(nova_farmaceutica)
 
     user = session.get(User, current_user.id)
-    if user:
-        user.ativo = True
-        session.add(user)
-        session.commit()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    user.ativo = True
+    session.add(user)
+
+    session.commit()
+
+    session.refresh(nova_farmaceutica)
+    session.refresh(user)
 
     return nova_farmaceutica
 

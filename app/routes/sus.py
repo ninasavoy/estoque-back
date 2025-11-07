@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
-from app.auth.dependencies import get_current_user
-from models import SUS, User
+from auth.dependencies import get_current_user
+from models import SUS, SUSCreate, User
 from database import get_session
 
 router = APIRouter(prefix="/sus", tags=["SUS"])
@@ -10,27 +10,36 @@ router = APIRouter(prefix="/sus", tags=["SUS"])
 
 @router.post("/", response_model=SUS)
 def create_sus(
-    sus: SUS,
+    sus: SUSCreate,
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e SUS")
 
-    if current_user.tipo == "sus":
-        sus.id_usuario = current_user.id
+    if current_user.ativo:
+        raise HTTPException(status_code=400, detail="Usuário já possui um cadastro de SUS")
 
-    session.add(sus)
-    session.commit()
-    session.refresh(sus)
+    novo_sus = SUS(
+        regiao=sus.regiao,
+        contato_gestor=sus.contato_gestor,
+        nome_gestor=sus.nome_gestor,
+        id_usuario=current_user.id
+    )
+    session.add(novo_sus)
 
     user = session.get(User, current_user.id)
-    if user:
-        user.ativo = True
-        session.add(user)
-        session.commit()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    return sus
+    user.ativo = True
+    session.add(user)
+
+    session.commit()
+    session.refresh(novo_sus)
+    session.refresh(user)
+
+    return novo_sus
 
 
 @router.get("/", response_model=List[SUS])
