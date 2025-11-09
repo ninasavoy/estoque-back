@@ -2,23 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import SQLModel, Session, select
 from typing import List, Optional
 from datetime import datetime
-from models import ConteudoEducacional, Medicamento, User
+from models import ConteudoEducacional, Farmaceutica, Medicamento, User
 from database import get_session
 from auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/conteudo", tags=["Conteúdo Educacional"])
 
-# ------------------------------
-# Listar todos os conteúdos
-# ------------------------------
+
 @router.get("/", response_model=List[ConteudoEducacional])
 def listar_conteudos(session: Session = Depends(get_session)):
-    """Retorna todos os conteúdos educacionais"""
     return session.exec(select(ConteudoEducacional)).all()
 
-# ------------------------------
-# Obter conteúdo específico
-# ------------------------------
+
 @router.get("/{conteudo_id}", response_model=ConteudoEducacional)
 def obter_conteudo(conteudo_id: int, session: Session = Depends(get_session)):
     """Retorna um conteúdo educacional específico pelo ID"""
@@ -27,9 +22,7 @@ def obter_conteudo(conteudo_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Conteúdo não encontrado")
     return conteudo
 
-# ------------------------------
-# Criar conteúdo (somente farmacêutica)
-# ------------------------------
+
 @router.post("/", response_model=ConteudoEducacional)
 def criar_conteudo(
     id_medicamento: int,
@@ -39,16 +32,23 @@ def criar_conteudo(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Cria novo conteúdo educacional sobre um medicamento"""
-    # Valida tipo
-    tipos_validos = ["doenca", "medicamento", "uso_correto", "efeitos_colaterais"]
-    if tipo not in tipos_validos:
-        raise HTTPException(status_code=400, detail=f"Tipo inválido. Use: {', '.join(tipos_validos)}")
-    
-    # Verifica se o medicamento existe
+    if current_user.tipo not in ["admin", "farmaceutica"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+
     medicamento = session.get(Medicamento, id_medicamento)
     if not medicamento:
         raise HTTPException(status_code=404, detail="Medicamento não encontrado")
+
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+        if not farmaceutica or medicamento.id_farmaceutica != farmaceutica.id_farmaceutica:
+            raise HTTPException(status_code=403, detail="Você só pode criar conteúdo sobre seus próprios medicamentos")
+        
+    tipos_validos = ["doenca", "medicamento", "uso_correto", "efeitos_colaterais"]
+    if tipo not in tipos_validos:
+        raise HTTPException(status_code=400, detail=f"Tipo inválido. Use: {', '.join(tipos_validos)}")
     
     novo_conteudo = ConteudoEducacional(
         id_medicamento=id_medicamento,
@@ -62,9 +62,7 @@ def criar_conteudo(
     session.refresh(novo_conteudo)
     return novo_conteudo
 
-# ------------------------------
-# Atualizar conteúdo
-# ------------------------------
+
 @router.put("/{conteudo_id}", response_model=ConteudoEducacional)
 def atualizar_conteudo(
     conteudo_id: int,
@@ -74,12 +72,22 @@ def atualizar_conteudo(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Atualiza um conteúdo educacional existente"""
+    if current_user.tipo not in ["admin", "farmaceutica"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+
     conteudo_obj = session.get(ConteudoEducacional, conteudo_id)
     if not conteudo_obj:
         raise HTTPException(status_code=404, detail="Conteúdo não encontrado")
-    
-    # Atualiza campos se fornecidos
+
+    medicamento = session.get(Medicamento, conteudo_obj.id_medicamento)
+
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+        if not farmaceutica or medicamento.id_farmaceutica != farmaceutica.id_farmaceutica:
+            raise HTTPException(status_code=403, detail="Você só pode atualizar conteúdos dos seus próprios medicamentos")
+        
     if titulo is not None:
         conteudo_obj.titulo = titulo
     if tipo is not None:
@@ -104,11 +112,22 @@ def deletar_conteudo(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Remove um conteúdo educacional existente"""
+    if current_user.tipo not in ["admin", "farmaceutica"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+
     conteudo_obj = session.get(ConteudoEducacional, conteudo_id)
     if not conteudo_obj:
         raise HTTPException(status_code=404, detail="Conteúdo não encontrado")
-    
+
+    medicamento = session.get(Medicamento, conteudo_obj.id_medicamento)
+
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+        if not farmaceutica or medicamento.id_farmaceutica != farmaceutica.id_farmaceutica:
+            raise HTTPException(status_code=403, detail="Você só pode deletar conteúdos dos seus próprios medicamentos")
+
     session.delete(conteudo_obj)
     session.commit()
     return {"message": "Conteúdo deletado com sucesso"}

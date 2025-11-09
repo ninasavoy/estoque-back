@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
 from auth.dependencies import get_current_user
-from models import SUS, UBS, User
+from models import SUS, UBS, UBSCreate, User
 from database import get_session
 
 router = APIRouter(prefix="/ubs", tags=["UBS"])
@@ -10,10 +10,13 @@ router = APIRouter(prefix="/ubs", tags=["UBS"])
 
 @router.post("/", response_model=UBS)
 def create_ubs(
-    ubs: UBS,
+    ubs: UBSCreate,
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
+    if current_user.tipo not in ["admin", "ubs"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
+    
     if current_user.ativo:
         raise HTTPException(status_code=400, detail="Usuário já possui uma UBS cadastrada")
 

@@ -50,7 +50,7 @@ def list_pacientes(
     current_user = Depends(get_current_user)
 ):
     if current_user.tipo not in ["admin","sus", "ubs", "paciente"]:
-        raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
+        raise HTTPException(status_code=403, detail="Acesso restrito a UBS, SUS, pacientes e administradores")
 
     if current_user.tipo == "admin":
         return session.exec(select(Paciente)).all()
@@ -96,7 +96,7 @@ def get_paciente(
     current_user = Depends(get_current_user)
 ):
     if current_user.tipo not in ["admin","sus", "ubs", "paciente"]:
-        raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
+        raise HTTPException(status_code=403, detail="Acesso restrito a UBS, SUS, pacientes e administradores")
     
     paciente = session.get(Paciente, paciente_id)
     if not paciente:
