@@ -3,7 +3,7 @@ from sqlmodel import Session, select, func
 from typing import List
 from datetime import datetime, timedelta
 from models import (
-    Medicamento, Lote, DistribuidorParaSUS, SUSParaUBS, 
+    ConteudoEducacional, Medicamento, Lote, DistribuidorParaSUS, SUSParaUBS, 
     UBSParaPaciente, Feedback, User
 )
 from database import get_session
@@ -26,24 +26,20 @@ def farmaceutica_dashboard(
     - Se chegaram ao paciente final
     - Validade, tempo médio de distribuição
     """
-    # Total de medicamentos cadastrados
     total_medicamentos = session.exec(
         select(func.count(Medicamento.id_medicamento))
     ).one()
     
-    # Total de lotes
     total_lotes = session.exec(
         select(func.count(Lote.id_lote))
     ).one()
     
-    # Lotes vencidos
     lotes_vencidos = session.exec(
         select(func.count(Lote.id_lote)).where(
             Lote.data_vencimento < datetime.now()
         )
     ).one()
     
-    # Lotes próximos do vencimento (30 dias)
     data_limite = datetime.now() + timedelta(days=30)
     lotes_proximos_vencimento = session.exec(
         select(func.count(Lote.id_lote)).where(
@@ -51,7 +47,7 @@ def farmaceutica_dashboard(
         )
     ).one()
     
-    # Medicamentos por estágio da cadeia
+    
     em_distribuidor = session.exec(
         select(func.count(DistribuidorParaSUS.id_dps)).where(
             DistribuidorParaSUS.status == "em_transito"
@@ -76,11 +72,15 @@ def farmaceutica_dashboard(
         )
     ).one()
     
-    # Feedbacks recebidos
     total_feedbacks = session.exec(
         select(func.count(Feedback.id_feedback))
     ).one()
     
+    conteudo_educacional = session.exec(
+        select(func.count(ConteudoEducacional.id_feedback))
+    ).one()
+
+
     return {
         "medicamentos": {
             "total": total_medicamentos,
@@ -95,8 +95,9 @@ def farmaceutica_dashboard(
             "chegou_paciente": chegou_paciente,
             "taxa_entrega": round((chegou_paciente / total_lotes * 100) if total_lotes > 0 else 0, 2)
         },
-        "feedbacks": {
-            "total": total_feedbacks
+        "feedbacks e conteúdos": {
+            "total": total_feedbacks, 
+            "conteudo_educacional": conteudo_educacional
         }
     }
 
@@ -106,28 +107,19 @@ def distribuidor_dashboard(
     current_user: User = Depends(get_current_distribuidor),
     session: Session = Depends(get_session)
 ):
-    """
-    Dashboard do Distribuidor - Informações logísticas
-    - Entregas pendentes
-    - Entregas concluídas
-    - Tempo médio de entrega
-    """
-    # Assumindo que existe relação entre User e Distribuidor
-    # Por simplificação, vamos buscar todas as movimentações
-    
+
     pendentes = session.exec(
         select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "em_transito"
+            DistribuidorParaSUS.status == "em transito"
         )
     ).all()
     
     concluidas = session.exec(
         select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "entregue"
+            DistribuidorParaSUS.status == "recebido"
         )
     ).all()
     
-    # Calcula tempo médio de entrega
     tempos_entrega = []
     for mov in concluidas:
         if mov.data_recebimento and mov.data_envio:
@@ -159,16 +151,10 @@ def sus_dashboard(
     current_user: User = Depends(get_current_sus),
     session: Session = Depends(get_session)
 ):
-    """
-    Dashboard do SUS - Informações gerenciais
-    - Onde os medicamentos estão
-    - Tempo de validade
-    - Necessidades de remanejamento
-    """
     # Medicamentos em estoque no SUS (recebidos mas não enviados)
     recebidos_distribuidor = session.exec(
         select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "entregue"
+            DistribuidorParaSUS.status == "recebido"
         )
     ).all()
     
@@ -176,7 +162,6 @@ def sus_dashboard(
         select(SUSParaUBS)
     ).all()
     
-    # Lotes que precisam de atenção (vencimento próximo)
     data_limite = datetime.now() + timedelta(days=60)
     lotes_atencao = session.exec(
         select(Lote).where(
@@ -212,13 +197,6 @@ def ubs_dashboard(
     current_user: User = Depends(get_current_ubs),
     session: Session = Depends(get_session)
 ):
-    """
-    Dashboard da UBS - Controle de estoque local
-    - Medicamentos em estoque
-    - Distribuídos para pacientes
-    - Alertas de estoque baixo
-    """
-    # Medicamentos recebidos pela UBS
     recebidos = session.exec(
         select(SUSParaUBS).where(
             SUSParaUBS.status == "entregue"

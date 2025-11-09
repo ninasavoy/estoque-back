@@ -1,233 +1,306 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from typing import List
 from datetime import datetime
-from typing import List, Optional
-
+from models import (
+    DistribuidorParaSUS,
+    Paciente,
+    SUSParaUBS,
+    UBSParaPaciente,
+    Distribuidor,
+    SUS,
+    UBS,
+    User,
+)
 from database import get_session
-from models import DistribuidorParaSUS, SUSParaUBS, UBSParaPaciente
+from auth.dependencies import get_current_user
 
-router = APIRouter(prefix="/movimentacoes", tags=["Movimentações"])
+# Routers separados
+router_dps = APIRouter(prefix="/distribuidores-sus", tags=["Distribuidor → SUS"])
+router_spu = APIRouter(prefix="/sus-ubs", tags=["SUS → UBS"])
+router_upp = APIRouter(prefix="/ubs-pacientes", tags=["UBS → Paciente"])
 
 # ==========================================================
-#  DISTRIBUIDOR → SUS
+# DISTRIBUIDOR → SUS
 # ==========================================================
 
-@router.get("/distribuidor-sus", response_model=List[DistribuidorParaSUS])
-def listar_mov_dps(session: Session = Depends(get_session)):
-    """Lista todas as movimentações Distribuidor → SUS"""
-    return session.exec(select(DistribuidorParaSUS)).all()
-
-
-@router.get("/distribuidor-sus/{id_dps}", response_model=DistribuidorParaSUS)
-def obter_mov_dps(id_dps: int, session: Session = Depends(get_session)):
-    """Obtém uma movimentação específica"""
-    mov = session.get(DistribuidorParaSUS, id_dps)
-    if not mov:
-        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    return mov
-
-
-@router.post("/distribuidor-sus", response_model=DistribuidorParaSUS, status_code=status.HTTP_201_CREATED)
-def criar_mov_dps(
-    id_distribuidor: int,
-    id_sus: int,
-    id_lote: int,
-    session: Session = Depends(get_session)
+@router_dps.post("/", response_model=DistribuidorParaSUS, status_code=status.HTTP_201_CREATED)
+def create_dps(
+    dps: DistribuidorParaSUS,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """Cria uma nova movimentação Distribuidor → SUS"""
-    envio = DistribuidorParaSUS(
-        id_distribuidor=id_distribuidor,
-        id_sus=id_sus,
-        id_lote=id_lote,
-        data_envio=datetime.now(),
-        status="Em trânsito"
-    )
-    session.add(envio)
+    if current_user.tipo not in ["admin", "distribuidor"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores e administradores")
+
+    if current_user.tipo == "distribuidor":
+        distribuidor = session.exec(
+            select(Distribuidor).where(Distribuidor.id_usuario == current_user.id)
+        ).first()
+        if not distribuidor:
+            raise HTTPException(status_code=404, detail="Distribuidor não encontrado")
+        dps.id_distribuidor = distribuidor.id_distribuidor
+
+    dps.data_envio = datetime.now()
+    dps.status = "em transito"
+
+    session.add(dps)
     session.commit()
-    session.refresh(envio)
-    return envio
+    session.refresh(dps)
+    return dps
 
 
-@router.put("/distribuidor-sus/{id_dps}", response_model=DistribuidorParaSUS)
-def atualizar_mov_dps(id_dps: int, status: str, session: Session = Depends(get_session)):
-    """Atualiza o status de uma movimentação Distribuidor → SUS"""
-    mov = session.get(DistribuidorParaSUS, id_dps)
-    if not mov:
+@router_dps.get("/", response_model=List[DistribuidorParaSUS])
+def list_dps(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    query = select(DistribuidorParaSUS)
+    if current_user.tipo == "distribuidor":
+        distribuidor = session.exec(
+            select(Distribuidor).where(Distribuidor.id_usuario == current_user.id)
+        ).first()
+        if not distribuidor:
+            raise HTTPException(status_code=404, detail="Distribuidor não encontrado")
+        query = query.where(DistribuidorParaSUS.id_distribuidor == distribuidor.id_distribuidor)
+    return session.exec(query).all()
+
+
+@router_dps.get("/{id_dps}", response_model=DistribuidorParaSUS)
+def get_dps(id_dps: int, session: Session = Depends(get_session)):
+    dps = session.get(DistribuidorParaSUS, id_dps)
+    if not dps:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    return dps
+
+
+@router_dps.put("/{id_dps}", response_model=DistribuidorParaSUS)
+def update_dps(id_dps: int, dps_data: DistribuidorParaSUS, session: Session = Depends(get_session)):
+    dps = session.get(DistribuidorParaSUS, id_dps)
+    if not dps:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
 
-    mov.status = status
-    session.add(mov)
+    for key, value in dps_data.model_dump(exclude_unset=True, exclude={"id_dps"}).items():
+        setattr(dps, key, value)
+
+    session.add(dps)
     session.commit()
-    session.refresh(mov)
-    return mov
+    session.refresh(dps)
+    return dps
 
 
-@router.delete("/distribuidor-sus/{id_dps}", status_code=status.HTTP_204_NO_CONTENT)
-def deletar_mov_dps(id_dps: int, session: Session = Depends(get_session)):
-    """Deleta uma movimentação Distribuidor → SUS"""
-    mov = session.get(DistribuidorParaSUS, id_dps)
-    if not mov:
+@router_dps.delete("/{id_dps}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dps(id_dps: int, session: Session = Depends(get_session)):
+    dps = session.get(DistribuidorParaSUS, id_dps)
+    if not dps:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    session.delete(mov)
+    session.delete(dps)
     session.commit()
-    return {"message": "Movimentação excluída com sucesso"}
 
 
-@router.post("/distribuidor-sus/{id_dps}/receber")
-def confirmar_recebimento_dps(id_dps: int, session: Session = Depends(get_session)):
-    """Confirma recebimento do lote pelo SUS"""
-    mov = session.get(DistribuidorParaSUS, id_dps)
-    if not mov:
+@router_dps.post("/{id_dps}/confirmar")
+def confirmar_recebimento_dps(
+    id_dps: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.tipo != "sus" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a SUS")
+    
+    sus = session.exec(select(SUS).where(SUS.id_usuario == current_user.id)).first()
+
+    dps = session.get(DistribuidorParaSUS, id_dps)
+    if not dps:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    if dps.id_sus != sus.id_sus:
+        raise HTTPException(status_code=403, detail="Você não é o destinatário desta movimentação")
 
-    mov.data_recebimento = datetime.now()
-    mov.status = "Recebido"
-    session.add(mov)
+    dps.status = "recebido"
+    dps.data_recebimento = datetime.now()
+
+    session.add(dps)
     session.commit()
-    return {"message": "Recebimento confirmado com sucesso", "movimentacao": mov}
+    return {"message": "Recebimento confirmado com sucesso"}
 
 
 # ==========================================================
-#  SUS → UBS
+# SUS → UBS
 # ==========================================================
 
-@router.get("/sus-ubs", response_model=List[SUSParaUBS])
-def listar_mov_spu(session: Session = Depends(get_session)):
+@router_spu.post("/", response_model=SUSParaUBS, status_code=status.HTTP_201_CREATED)
+def create_spu(
+    spu: SUSParaUBS,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.tipo not in ["admin", "sus"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a SUS e administradores")
+
+    if current_user.tipo == "sus":
+        sus = session.exec(select(SUS).where(SUS.id_usuario == current_user.id)).first()
+        if not sus:
+            raise HTTPException(status_code=404, detail="SUS não encontrado")
+        spu.id_sus = sus.id_sus
+
+    spu.data_envio = datetime.now()
+    spu.status = "em transito"
+
+    session.add(spu)
+    session.commit()
+    session.refresh(spu)
+    return spu
+
+
+@router_spu.get("/", response_model=List[SUSParaUBS])
+def list_spu(session: Session = Depends(get_session)):
     return session.exec(select(SUSParaUBS)).all()
 
 
-@router.get("/sus-ubs/{id_spu}", response_model=SUSParaUBS)
-def obter_mov_spu(id_spu: int, session: Session = Depends(get_session)):
-    mov = session.get(SUSParaUBS, id_spu)
-    if not mov:
+@router_spu.get("/{id_spu}", response_model=SUSParaUBS)
+def get_spu(id_spu: int, session: Session = Depends(get_session)):
+    spu = session.get(SUSParaUBS, id_spu)
+    if not spu:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    return mov
+    return spu
 
 
-@router.post("/sus-ubs", response_model=SUSParaUBS, status_code=status.HTTP_201_CREATED)
-def criar_mov_spu(
-    id_sus: int,
-    id_ubs: int,
-    id_lote: int,
-    session: Session = Depends(get_session)
+@router_spu.put("/{id_spu}", response_model=SUSParaUBS)
+def update_spu(id_spu: int, spu_data: SUSParaUBS, session: Session = Depends(get_session)):
+    spu = session.get(SUSParaUBS, id_spu)
+    if not spu:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+
+    for key, value in spu_data.model_dump(exclude_unset=True, exclude={"id_spu"}).items():
+        setattr(spu, key, value)
+
+    session.add(spu)
+    session.commit()
+    session.refresh(spu)
+    return spu
+
+
+@router_spu.delete("/{id_spu}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_spu(id_spu: int, session: Session = Depends(get_session)):
+    spu = session.get(SUSParaUBS, id_spu)
+    if not spu:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    session.delete(spu)
+    session.commit()
+
+
+@router_spu.post("/{id_spu}/confirmar")
+def confirmar_recebimento_spu(
+    id_spu: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    envio = SUSParaUBS(
-        id_sus=id_sus,
-        id_ubs=id_ubs,
-        id_lote=id_lote,
-        data_envio=datetime.now(),
-        status="Em trânsito"
-    )
-    session.add(envio)
-    session.commit()
-    session.refresh(envio)
-    return envio
+    if current_user.tipo != "ubs" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a UBS")
+    
+    ubs = session.exec(select(UBS).where(UBS.id_usuario == current_user.id)).first()
 
-
-@router.put("/sus-ubs/{id_spu}", response_model=SUSParaUBS)
-def atualizar_mov_spu(id_spu: int, status: str, session: Session = Depends(get_session)):
-    mov = session.get(SUSParaUBS, id_spu)
-    if not mov:
+    spu = session.get(SUSParaUBS, id_spu)
+    if not spu:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    if spu.id_ubs != ubs.id_ubs:
+        raise HTTPException(status_code=403, detail="Você não é o destinatário desta movimentação")
 
-    mov.status = status
-    session.add(mov)
+    spu.status = "recebido"
+    spu.data_recebimento = datetime.now()
+
+    session.add(spu)
     session.commit()
-    session.refresh(mov)
-    return mov
-
-
-@router.delete("/sus-ubs/{id_spu}", status_code=status.HTTP_204_NO_CONTENT)
-def deletar_mov_spu(id_spu: int, session: Session = Depends(get_session)):
-    mov = session.get(SUSParaUBS, id_spu)
-    if not mov:
-        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    session.delete(mov)
-    session.commit()
-    return {"message": "Movimentação excluída com sucesso"}
-
-
-@router.post("/sus-ubs/{id_spu}/receber")
-def confirmar_recebimento_spu(id_spu: int, session: Session = Depends(get_session)):
-    mov = session.get(SUSParaUBS, id_spu)
-    if not mov:
-        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-
-    mov.data_recebimento = datetime.now()
-    mov.status = "Recebido"
-    session.add(mov)
-    session.commit()
-    return {"message": "Recebimento confirmado com sucesso", "movimentacao": mov}
+    return {"message": "Recebimento confirmado com sucesso"}
 
 
 # ==========================================================
-#  UBS → PACIENTE
+# UBS → PACIENTE
 # ==========================================================
 
-@router.get("/ubs-paciente", response_model=List[UBSParaPaciente])
-def listar_mov_upp(session: Session = Depends(get_session)):
+@router_upp.post("/", response_model=UBSParaPaciente, status_code=status.HTTP_201_CREATED)
+def create_upp(
+    upp: UBSParaPaciente,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.tipo not in ["admin", "ubs"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
+
+    if current_user.tipo == "ubs":
+        ubs = session.exec(select(UBS).where(UBS.id_usuario == current_user.id)).first()
+        if not ubs:
+            raise HTTPException(status_code=404, detail="UBS não encontrada")
+        upp.id_ubs = ubs.id_ubs
+
+    upp.data_envio = datetime.now()
+    upp.status = "em transito"
+
+    session.add(upp)
+    session.commit()
+    session.refresh(upp)
+    return upp
+
+
+@router_upp.get("/", response_model=List[UBSParaPaciente])
+def list_upp(session: Session = Depends(get_session)):
     return session.exec(select(UBSParaPaciente)).all()
 
 
-@router.get("/ubs-paciente/{id_upp}", response_model=UBSParaPaciente)
-def obter_mov_upp(id_upp: int, session: Session = Depends(get_session)):
-    mov = session.get(UBSParaPaciente, id_upp)
-    if not mov:
+@router_upp.get("/{id_upp}", response_model=UBSParaPaciente)
+def get_upp(id_upp: int, session: Session = Depends(get_session)):
+    upp = session.get(UBSParaPaciente, id_upp)
+    if not upp:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    return mov
+    return upp
 
 
-@router.post("/ubs-paciente", response_model=UBSParaPaciente, status_code=status.HTTP_201_CREATED)
-def criar_mov_upp(
-    id_ubs: int,
-    id_paciente: int,
-    id_lote: int,
-    session: Session = Depends(get_session)
+@router_upp.put("/{id_upp}", response_model=UBSParaPaciente)
+def update_upp(id_upp: int, upp_data: UBSParaPaciente, session: Session = Depends(get_session)):
+    upp = session.get(UBSParaPaciente, id_upp)
+    if not upp:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+
+    for key, value in upp_data.model_dump(exclude_unset=True, exclude={"id_upp"}).items():
+        setattr(upp, key, value)
+
+    session.add(upp)
+    session.commit()
+    session.refresh(upp)
+    return upp
+
+
+@router_upp.delete("/{id_upp}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_upp(id_upp: int, session: Session = Depends(get_session)):
+    upp = session.get(UBSParaPaciente, id_upp)
+    if not upp:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
+    session.delete(upp)
+    session.commit()
+
+
+@router_upp.post("/{id_upp}/confirmar")
+def confirmar_recebimento_upp(
+    id_upp: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    envio = UBSParaPaciente(
-        id_ubs=id_ubs,
-        id_paciente=id_paciente,
-        id_lote=id_lote,
-        data_envio=datetime.now(),
-        status="Em trânsito"
-    )
-    session.add(envio)
-    session.commit()
-    session.refresh(envio)
-    return envio
+    if current_user.tipo != "paciente" and current_user.tipo != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a pacientes")
+    
+    paciente = session.exec(
+        select(Paciente).where(Paciente.id_usuario == current_user.id)
+    ).first()
 
-
-@router.put("/ubs-paciente/{id_upp}", response_model=UBSParaPaciente)
-def atualizar_mov_upp(id_upp: int, status: str, session: Session = Depends(get_session)):
-    mov = session.get(UBSParaPaciente, id_upp)
-    if not mov:
+    if not paciente:
+        raise HTTPException(status_code=404, detail="Paciente não encontrado")
+    
+    upp = session.get(UBSParaPaciente, id_upp)
+    if not upp:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
 
-    mov.status = status
-    session.add(mov)
+    if upp.id_paciente != paciente.id_paciente:
+        raise HTTPException(status_code=403, detail="Você não é o destinatário desta movimentação")
+
+    upp.status = "recebido"
+    upp.data_recebimento = datetime.now()
+
+    session.add(upp)
     session.commit()
-    session.refresh(mov)
-    return mov
-
-
-@router.delete("/ubs-paciente/{id_upp}", status_code=status.HTTP_204_NO_CONTENT)
-def deletar_mov_upp(id_upp: int, session: Session = Depends(get_session)):
-    mov = session.get(UBSParaPaciente, id_upp)
-    if not mov:
-        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-    session.delete(mov)
-    session.commit()
-    return {"message": "Movimentação excluída com sucesso"}
-
-
-@router.post("/ubs-paciente/{id_upp}/receber")
-def confirmar_recebimento_upp(id_upp: int, session: Session = Depends(get_session)):
-    mov = session.get(UBSParaPaciente, id_upp)
-    if not mov:
-        raise HTTPException(status_code=404, detail="Movimentação não encontrada")
-
-    mov.data_recebimento = datetime.now()
-    mov.status = "Entregue ao paciente"
-    session.add(mov)
-    session.commit()
-    return {"message": "Entrega confirmada com sucesso", "movimentacao": mov}
+    return {"message": "Recebimento confirmado com sucesso"}
