@@ -7,17 +7,15 @@ from models import (
     UBSParaPaciente, Feedback, User
 )
 from database import get_session
-from auth.dependencies import (
-    get_current_farmaceutica, get_current_distribuidor,
-    get_current_sus, get_current_ubs
-)
+from auth.dependencies import get_current_user
+
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboards"])
 
 
 @router.get("/farmaceutica/overview")
 def farmaceutica_dashboard(
-    current_user: User = Depends(get_current_farmaceutica),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
@@ -104,7 +102,7 @@ def farmaceutica_dashboard(
 
 @router.get("/distribuidor/logistica")
 def distribuidor_dashboard(
-    current_user: User = Depends(get_current_distribuidor),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
 
@@ -148,7 +146,7 @@ def distribuidor_dashboard(
 
 @router.get("/sus/gerencial")
 def sus_dashboard(
-    current_user: User = Depends(get_current_sus),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     # Medicamentos em estoque no SUS (recebidos mas não enviados)
@@ -194,7 +192,7 @@ def sus_dashboard(
 
 @router.get("/ubs/estoque")
 def ubs_dashboard(
-    current_user: User = Depends(get_current_ubs),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     recebidos = session.exec(
