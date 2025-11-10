@@ -23,7 +23,6 @@ def create_lote(
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e farmacêuticas.")
 
-    # Se for farmacêutica, verifica se o medicamento pertence a ela
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(
             select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
