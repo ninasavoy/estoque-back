@@ -1,19 +1,35 @@
-version: "3.9"
+name: nina-api
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: mysql-gerenciamento
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: gerenciamentodb
-      MYSQL_USER: gerenciamentouser
-      MYSQL_PASSWORD: senha123
+  postgres:
+    container_name: postgres
+    image: postgres
     ports:
-      - "3306:3306"
+      - 5433:5432
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: project
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./docker/data/postgres:/var/lib/postgresql/data
+    networks:
+      - infra-network
+    restart: always
 
-volumes:
-  mysql_data:
+  server:
+    container_name: server
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+    networks:
+      - infra-network
+    environment:
+      - DATABASE_URL=postgresql://root:root@postgres:5432/project
+
+networks:
+  infra-network:
+    driver: bridge
