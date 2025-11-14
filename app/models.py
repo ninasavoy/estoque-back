@@ -182,14 +182,26 @@ class UBSParaPaciente(SQLModel, table=True):
 # -------------------------
 # FEEDBACK
 # -------------------------
-class Feedback(SQLModel, table=True):
+class FeedbackBase(SQLModel):
+    comentario: str
+    tipo: str
+
+
+class FeedbackCreate(FeedbackBase):
+    id_medicamento: int   # o paciente escolhe o medicamento
+    # id_paciente e data NÃO entram aqui
+
+
+class FeedbackUpdate(SQLModel):
+    comentario: Optional[str] = None
+    tipo: Optional[str] = None
+
+
+class Feedback(FeedbackBase, table=True):
     id_feedback: Optional[int] = Field(default=None, primary_key=True)
     id_paciente: int = Field(foreign_key="paciente.id_paciente")
     id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
-    comentario: str
-    tipo: str
-    data: datetime
-
+    data: datetime = Field(default_factory=datetime.utcnow)
 
 # -------------------------
 # CONTEÚDO EDUCACIONAL

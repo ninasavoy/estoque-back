@@ -15,6 +15,7 @@ from routes import (
     auth,
     admin, 
     educacional,
+    movimentacoes
 )
 from contextlib import asynccontextmanager
 
@@ -55,9 +56,13 @@ app.include_router(distribuidor.router)
 app.include_router(sus.router)
 app.include_router(ubs.router)
 app.include_router(paciente.router)
+app.include_router(movimentacoes.router_dps)
+app.include_router(movimentacoes.router_spu)
+app.include_router(movimentacoes.router_upp)
 app.include_router(feedback.router)
 app.include_router(dashboard.router)
 app.include_router(educacional.router)
+
 
 @app.get("/")
 def read_root():
