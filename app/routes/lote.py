@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
 from typing import List
 from datetime import datetime
-from models import Lote
+from models import Lote, LoteBase
 from database import get_session
 from auth.dependencies import get_current_user
 from models import User, Farmaceutica, Medicamento
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/lotes", tags=["Lotes"])
 # -------------------------
 @router.post("/", response_model=Lote)
 def create_lote(
-    lote: Lote,
+    lote: LoteBase, 
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -36,10 +36,13 @@ def create_lote(
         if medicamento.id_farmaceutica != farmaceutica.id_farmaceutica:
             raise HTTPException(status_code=403, detail="Você não pode criar lotes para medicamentos de outras farmacêuticas.")
 
-    session.add(lote)
+    # Converte LoteBase em Lote (model de tabela)
+    db_lote = Lote.model_validate(lote)
+    
+    session.add(db_lote)
     session.commit()
-    session.refresh(lote)
-    return lote
+    session.refresh(db_lote)
+    return db_lote
 
 
 # -------------------------
@@ -136,7 +139,7 @@ def get_lote(
 @router.put("/{lote_id}", response_model=Lote)
 def update_lote(
     lote_id: int,
-    lote: Lote,
+    lote: LoteBase,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):

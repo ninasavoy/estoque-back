@@ -61,16 +61,18 @@ class Medicamento(SQLModel, table=True):
     lotes: List["Lote"] = Relationship(back_populates="medicamento")
 
 
-class Lote(SQLModel, table=True):
-    id_lote: Optional[int] = Field(default=None, primary_key=True)
+class LoteBase(SQLModel):
     codigo_lote: str
     data_fabricacao: datetime
     data_vencimento: datetime
     quantidade: int
     id_medicamento: int = Field(foreign_key="medicamento.id_medicamento")
 
-    medicamento: Optional[Medicamento] = Relationship(back_populates="lotes")
 
+class Lote(LoteBase, table=True):
+    id_lote: Optional[int] = Field(default=None, primary_key=True)
+    
+    medicamento: Optional[Medicamento] = Relationship(back_populates="lotes")
 
 # -------------------------
 # DISTRIBUIDOR
@@ -159,14 +161,16 @@ class DistribuidorParaSUS(SQLModel, table=True):
     status: str
     
 
-class SUSParaUBS(SQLModel, table=True):
-    id_spu: Optional[int] = Field(default=None, primary_key=True)
+class SUSParaUBSBase(SQLModel):
     id_sus: int = Field(foreign_key="sus.id_sus")
     id_ubs: int = Field(foreign_key="ubs.id_ubs")
     id_lote: int = Field(foreign_key="lote.id_lote")
     data_envio: datetime
     data_recebimento: Optional[datetime] = None
     status: str
+
+class SUSParaUBS(SUSParaUBSBase, table=True):
+    id_spu: Optional[int] = Field(default=None, primary_key=True)
 
 
 class UBSParaPaciente(SQLModel, table=True):

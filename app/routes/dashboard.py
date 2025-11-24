@@ -3,7 +3,7 @@ from sqlmodel import Session, select, func
 from typing import List
 from datetime import datetime, timedelta
 from models import (
-    ConteudoEducacional, Medicamento, Lote, DistribuidorParaSUS, SUSParaUBS, 
+    SUS, UBS, ConteudoEducacional, Distribuidor, Farmaceutica, Medicamento, Lote, DistribuidorParaSUS, SUSParaUBS, 
     UBSParaPaciente, Feedback, User
 )
 from database import get_session
@@ -20,64 +20,158 @@ def farmaceutica_dashboard(
 ):
     """
     Dashboard da Farmacêutica - Visibilidade completa da jornada do medicamento
-    - Onde os medicamentos estão
-    - Se chegaram ao paciente final
-    - Validade, tempo médio de distribuição
     """
-    total_medicamentos = session.exec(
-        select(func.count(Medicamento.id_medicamento))
-    ).one()
+    # Verifica permissão
+    if current_user.tipo not in ["admin", "farmaceutica"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
     
-    total_lotes = session.exec(
-        select(func.count(Lote.id_lote))
-    ).one()
+    # Se for farmacêutica, busca os dados dela
+    if current_user.tipo == "farmaceutica":
+        farmaceutica = session.exec(
+            select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
+        ).first()
+        
+        if not farmaceutica:
+            raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")
+        
+        # Filtra medicamentos da farmacêutica
+        total_medicamentos = session.exec(
+            select(func.count(Medicamento.id_medicamento))
+            .where(Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica)
+        ).one()
+        
+        # Filtra lotes da farmacêutica
+        total_lotes = session.exec(
+            select(func.count(Lote.id_lote))
+            .join(Medicamento)
+            .where(Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica)
+        ).one()
+        
+        lotes_vencidos = session.exec(
+            select(func.count(Lote.id_lote))
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                Lote.data_vencimento < datetime.now()
+            )
+        ).one()
+        
+        data_limite = datetime.now() + timedelta(days=30)
+        lotes_proximos_vencimento = session.exec(
+            select(func.count(Lote.id_lote))
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                Lote.data_vencimento.between(datetime.now(), data_limite)
+            )
+        ).one()
+        
+        # Rastreamento apenas dos lotes da farmacêutica
+        em_distribuidor = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps))
+            .join(Lote)
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).one()
+        
+        em_sus = session.exec(
+            select(func.count(SUSParaUBS.id_spu))
+            .join(Lote)
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                SUSParaUBS.status == "em transito"
+            )
+        ).one()
+        
+        em_ubs = session.exec(
+            select(func.count(UBSParaPaciente.id_upp))
+            .join(Lote)
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                UBSParaPaciente.status == "em transito"
+            )
+        ).one()
+        
+        chegou_paciente = session.exec(
+            select(func.count(UBSParaPaciente.id_upp))
+            .join(Lote)
+            .join(Medicamento)
+            .where(
+                Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica,
+                UBSParaPaciente.status == "recebido"
+            )
+        ).one()
+        
+        # Feedbacks apenas dos medicamentos da farmacêutica
+        total_feedbacks = session.exec(
+            select(func.count(Feedback.id_feedback))
+            .join(Medicamento)
+            .where(Medicamento.id_farmaceutica == farmaceutica.id_farmaceutica)
+        ).one()
+        
+        # conteudo_educacional = session.exec(
+        #     select(func.count(ConteudoEducacional.id_conteudo))
+        #     .where(ConteudoEducacional.id_farmaceutica == farmaceutica.id_farmaceutica)
+        # ).one()
     
-    lotes_vencidos = session.exec(
-        select(func.count(Lote.id_lote)).where(
-            Lote.data_vencimento < datetime.now()
-        )
-    ).one()
-    
-    data_limite = datetime.now() + timedelta(days=30)
-    lotes_proximos_vencimento = session.exec(
-        select(func.count(Lote.id_lote)).where(
-            Lote.data_vencimento.between(datetime.now(), data_limite)
-        )
-    ).one()
-    
-    
-    em_distribuidor = session.exec(
-        select(func.count(DistribuidorParaSUS.id_dps)).where(
-            DistribuidorParaSUS.status == "em_transito"
-        )
-    ).one()
-    
-    em_sus = session.exec(
-        select(func.count(SUSParaUBS.id_spu)).where(
-            SUSParaUBS.status == "em_transito"
-        )
-    ).one()
-    
-    em_ubs = session.exec(
-        select(func.count(UBSParaPaciente.id_upp)).where(
-            UBSParaPaciente.status == "em_transito"
-        )
-    ).one()
-    
-    chegou_paciente = session.exec(
-        select(func.count(UBSParaPaciente.id_upp)).where(
-            UBSParaPaciente.status == "entregue"
-        )
-    ).one()
-    
-    total_feedbacks = session.exec(
-        select(func.count(Feedback.id_feedback))
-    ).one()
-    
-    conteudo_educacional = session.exec(
-        select(func.count(ConteudoEducacional.id_feedback))
-    ).one()
-
+    else:  # Admin vê tudo
+        total_medicamentos = session.exec(
+            select(func.count(Medicamento.id_medicamento))
+        ).one()
+        
+        total_lotes = session.exec(
+            select(func.count(Lote.id_lote))
+        ).one()
+        
+        lotes_vencidos = session.exec(
+            select(func.count(Lote.id_lote)).where(
+                Lote.data_vencimento < datetime.now()
+            )
+        ).one()
+        
+        data_limite = datetime.now() + timedelta(days=30)
+        lotes_proximos_vencimento = session.exec(
+            select(func.count(Lote.id_lote)).where(
+                Lote.data_vencimento.between(datetime.now(), data_limite)
+            )
+        ).one()
+        
+        em_distribuidor = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps)).where(
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).one()
+        
+        em_sus = session.exec(
+            select(func.count(SUSParaUBS.id_spu)).where(
+                SUSParaUBS.status == "em transito"
+            )
+        ).one()
+        
+        em_ubs = session.exec(
+            select(func.count(UBSParaPaciente.id_upp)).where(
+                UBSParaPaciente.status == "em transito"
+            )
+        ).one()
+        
+        chegou_paciente = session.exec(
+            select(func.count(UBSParaPaciente.id_upp)).where(
+                UBSParaPaciente.status == "recebido"
+            )
+        ).one()
+        
+        total_feedbacks = session.exec(
+            select(func.count(Feedback.id_feedback))
+        ).one()
+        
+        # conteudo_educacional = session.exec(
+        #     select(func.count(ConteudoEducacional.id_conteudo))
+        # ).one()
 
     return {
         "medicamentos": {
@@ -92,11 +186,11 @@ def farmaceutica_dashboard(
             "em_ubs": em_ubs,
             "chegou_paciente": chegou_paciente,
             "taxa_entrega": round((chegou_paciente / total_lotes * 100) if total_lotes > 0 else 0, 2)
-        },
-        "feedbacks e conteúdos": {
-            "total": total_feedbacks, 
-            "conteudo_educacional": conteudo_educacional
         }
+        # "feedbacks_e_conteudos": {
+        #     "total_feedbacks": total_feedbacks, 
+        #     "conteudo_educacional": conteudo_educacional
+        # }
     }
 
 
@@ -105,19 +199,50 @@ def distribuidor_dashboard(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-
-    pendentes = session.exec(
-        select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "em transito"
-        )
-    ).all()
+    """
+    Dashboard do Distribuidor - Logística de entregas
+    """
+    # Verifica permissão
+    if current_user.tipo not in ["admin", "distribuidor"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores e administradores")
     
-    concluidas = session.exec(
-        select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "recebido"
-        )
-    ).all()
+    # Se for distribuidor, busca apenas seus dados
+    if current_user.tipo == "distribuidor":
+        distribuidor = session.exec(
+            select(Distribuidor).where(Distribuidor.id_usuario == current_user.id)
+        ).first()
+        
+        if not distribuidor:
+            raise HTTPException(status_code=404, detail="Distribuidor não encontrado")
+        
+        pendentes = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.id_distribuidor == distribuidor.id_distribuidor,
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).all()
+        
+        concluidas = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.id_distribuidor == distribuidor.id_distribuidor,
+                DistribuidorParaSUS.status == "recebido"
+            )
+        ).all()
     
+    else:  # Admin vê tudo
+        pendentes = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).all()
+        
+        concluidas = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.status == "recebido"
+            )
+        ).all()
+    
+    # Calcula tempo médio
     tempos_entrega = []
     for mov in concluidas:
         if mov.data_recebimento and mov.data_envio:
@@ -139,7 +264,7 @@ def distribuidor_dashboard(
                 "data_envio": p.data_envio,
                 "status": p.status
             }
-            for p in pendentes[:10]  # Últimas 10
+            for p in pendentes[:10]
         ]
     }
 
@@ -149,23 +274,65 @@ def sus_dashboard(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    # Medicamentos em estoque no SUS (recebidos mas não enviados)
-    recebidos_distribuidor = session.exec(
-        select(DistribuidorParaSUS).where(
-            DistribuidorParaSUS.status == "recebido"
-        )
-    ).all()
+    """
+    Dashboard do SUS - Gestão de estoque e distribuição
+    """
+    # Verifica permissão
+    if current_user.tipo not in ["admin", "sus"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao SUS e administradores")
     
-    enviados_ubs = session.exec(
-        select(SUSParaUBS)
-    ).all()
+    # Se for SUS, busca apenas seus dados
+    if current_user.tipo == "sus":
+        sus = session.exec(
+            select(SUS).where(SUS.id_usuario == current_user.id)
+        ).first()
+        
+        if not sus:
+            raise HTTPException(status_code=404, detail="SUS não encontrado")
+        
+        # Recebidos do distribuidor
+        recebidos_distribuidor = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.id_sus == sus.id_sus,
+                DistribuidorParaSUS.status == "recebido"
+            )
+        ).all()
+        
+        # Enviados para UBS
+        enviados_ubs = session.exec(
+            select(SUSParaUBS).where(
+                SUSParaUBS.id_sus == sus.id_sus
+            )
+        ).all()
+        
+        # Lotes com atenção (pegando os IDs dos lotes recebidos)
+        lotes_ids = [r.id_lote for r in recebidos_distribuidor]
+        data_limite = datetime.now() + timedelta(days=60)
+        
+        lotes_atencao = session.exec(
+            select(Lote).where(
+                Lote.id_lote.in_(lotes_ids),
+                Lote.data_vencimento.between(datetime.now(), data_limite)
+            )
+        ).all() if lotes_ids else []
     
-    data_limite = datetime.now() + timedelta(days=60)
-    lotes_atencao = session.exec(
-        select(Lote).where(
-            Lote.data_vencimento.between(datetime.now(), data_limite)
-        )
-    ).all()
+    else:  # Admin vê tudo
+        recebidos_distribuidor = session.exec(
+            select(DistribuidorParaSUS).where(
+                DistribuidorParaSUS.status == "recebido"
+            )
+        ).all()
+        
+        enviados_ubs = session.exec(
+            select(SUSParaUBS)
+        ).all()
+        
+        data_limite = datetime.now() + timedelta(days=60)
+        lotes_atencao = session.exec(
+            select(Lote).where(
+                Lote.data_vencimento.between(datetime.now(), data_limite)
+            )
+        ).all()
     
     return {
         "estoque": {
@@ -195,16 +362,45 @@ def ubs_dashboard(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    recebidos = session.exec(
-        select(SUSParaUBS).where(
-            SUSParaUBS.status == "entregue"
-        )
-    ).all()
+    """
+    Dashboard da UBS - Controle de estoque e distribuição aos pacientes
+    """
+    # Verifica permissão
+    if current_user.tipo not in ["admin", "ubs"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito à UBS e administradores")
     
-    # Medicamentos distribuídos para pacientes
-    distribuidos = session.exec(
-        select(UBSParaPaciente)
-    ).all()
+    # Se for UBS, busca apenas seus dados
+    if current_user.tipo == "ubs":
+        ubs = session.exec(
+            select(UBS).where(UBS.id_usuario == current_user.id)
+        ).first()
+        
+        if not ubs:
+            raise HTTPException(status_code=404, detail="UBS não encontrada")
+        
+        recebidos = session.exec(
+            select(SUSParaUBS).where(
+                SUSParaUBS.id_ubs == ubs.id_ubs,
+                SUSParaUBS.status == "recebido"
+            )
+        ).all()
+        
+        distribuidos = session.exec(
+            select(UBSParaPaciente).where(
+                UBSParaPaciente.id_ubs == ubs.id_ubs
+            )
+        ).all()
+    
+    else:  # Admin vê tudo
+        recebidos = session.exec(
+            select(SUSParaUBS).where(
+                SUSParaUBS.status == "recebido"
+            )
+        ).all()
+        
+        distribuidos = session.exec(
+            select(UBSParaPaciente)
+        ).all()
     
     return {
         "estoque": {
@@ -220,6 +416,6 @@ def ubs_dashboard(
                 "data_envio": d.data_envio,
                 "status": d.status
             }
-            for d in distribuidos[-10:]  # Últimas 10
+            for d in distribuidos[-10:]
         ]
     }

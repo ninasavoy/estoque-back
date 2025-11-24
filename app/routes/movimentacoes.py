@@ -6,6 +6,7 @@ from models import (
     DistribuidorParaSUS,
     Paciente,
     SUSParaUBS,
+    SUSParaUBSBase,
     UBSParaPaciente,
     Distribuidor,
     SUS,
@@ -175,12 +176,10 @@ def confirmar_recebimento_dps(
     if current_user.tipo != "sus" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a SUS")
     
-    # ✅ MOVER A VERIFICAÇÃO PARA DEPOIS (admin não precisa de SUS)
     dps = session.get(DistribuidorParaSUS, id_dps)
     if not dps:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
     
-    # ✅ SÓ BUSCA SUS SE NÃO FOR ADMIN
     if current_user.tipo == "sus":
         sus = session.exec(select(SUS).where(SUS.id_usuario == current_user.id)).first()
         if not sus:
@@ -202,26 +201,32 @@ def confirmar_recebimento_dps(
 
 @router_spu.post("/", response_model=SUSParaUBS, status_code=status.HTTP_201_CREATED)
 def create_spu(
-    spu: SUSParaUBS,
+    spu: SUSParaUBSBase,  # ← Mudança aqui
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a SUS e administradores")
 
+    # Cria dict com os dados
+    spu_data = spu.model_dump()
+    
     if current_user.tipo == "sus":
         sus = session.exec(select(SUS).where(SUS.id_usuario == current_user.id)).first()
         if not sus:
             raise HTTPException(status_code=404, detail="SUS não encontrado")
-        spu.id_sus = sus.id_sus
+        spu_data["id_sus"] = sus.id_sus
 
-    spu.data_envio = datetime.now()
-    spu.status = "em transito"
+    spu_data["data_envio"] = datetime.now()
+    spu_data["status"] = "em transito"
 
-    session.add(spu)
+    # Converte para SUSParaUBS (tabela)
+    db_spu = SUSParaUBS(**spu_data)
+    
+    session.add(db_spu)
     session.commit()
-    session.refresh(spu)
-    return spu
+    session.refresh(db_spu)
+    return db_spu
 
 
 @router_spu.get("/", response_model=List[SUSParaUBS])
@@ -289,7 +294,7 @@ def get_spu(
 @router_spu.put("/{id_spu}", response_model=SUSParaUBS)
 def update_spu(
     id_spu: int,
-    spu_data: SUSParaUBS,
+    spu_data: SUSParaUBSBase,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
