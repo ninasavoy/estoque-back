@@ -22,6 +22,9 @@ def create_lote(
 ):
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e farmacêuticas.")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(
@@ -53,6 +56,9 @@ def list_lotes(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     if current_user.tipo == "admin":
         return session.exec(select(Lote)).all()
 
@@ -80,7 +86,9 @@ def list_lotes_vencidos(
     current_user: User = Depends(get_current_user)
 ):
     now = datetime.now()
-
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     # Admin vê tudo
     if current_user.tipo == "admin":
         query = select(Lote).where(Lote.data_vencimento < now)
@@ -114,6 +122,9 @@ def get_lote(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     lote = session.get(Lote, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote não encontrado.")
@@ -143,6 +154,9 @@ def update_lote(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     db_lote = session.get(Lote, lote_id)
     if not db_lote:
         raise HTTPException(status_code=404, detail="Lote não encontrado.")
@@ -180,6 +194,9 @@ def delete_lote(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     lote = session.get(Lote, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote não encontrado.")

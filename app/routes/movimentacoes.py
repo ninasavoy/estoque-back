@@ -33,6 +33,9 @@ def create_dps(
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "distribuidor":
         distribuidor = session.exec(
@@ -53,6 +56,8 @@ def create_dps(
 
 @router_dps.get("/", response_model=List[DistribuidorParaSUS])
 def list_dps(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     query = select(DistribuidorParaSUS)
 
@@ -84,6 +89,9 @@ def list_dps(session: Session = Depends(get_session), current_user: User = Depen
 
 @router_dps.get("/{id_dps}", response_model=DistribuidorParaSUS)
 def get_dps(id_dps: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     dps = session.get(DistribuidorParaSUS, id_dps)
     if not dps:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -116,7 +124,9 @@ def get_dps(id_dps: int, session: Session = Depends(get_session), current_user: 
 
 @router_dps.put("/{id_dps}", response_model=DistribuidorParaSUS)
 def update_dps(id_dps: int, dps_data: DistribuidorParaSUS, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     dps = session.get(DistribuidorParaSUS, id_dps)
     if not dps:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -146,6 +156,9 @@ def update_dps(id_dps: int, dps_data: DistribuidorParaSUS, session: Session = De
 
 @router_dps.delete("/{id_dps}", status_code=204)
 def delete_dps(id_dps: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     dps = session.get(DistribuidorParaSUS, id_dps)
     if not dps:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -175,6 +188,9 @@ def confirmar_recebimento_dps(
 ):
     if current_user.tipo != "sus" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a SUS")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
     
     dps = session.get(DistribuidorParaSUS, id_dps)
     if not dps:
@@ -207,6 +223,9 @@ def create_spu(
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a SUS e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     # Cria dict com os dados
     spu_data = spu.model_dump()
@@ -231,7 +250,9 @@ def create_spu(
 
 @router_spu.get("/", response_model=List[SUSParaUBS])
 def list_spu(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     query = select(SUSParaUBS)
 
     if current_user.tipo == "sus":
@@ -260,6 +281,9 @@ def get_spu(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     spu = session.get(SUSParaUBS, id_spu)
     if not spu:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -298,6 +322,9 @@ def update_spu(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     spu = session.get(SUSParaUBS, id_spu)
     if not spu:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -330,6 +357,9 @@ def delete_spu(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     spu = session.get(SUSParaUBS, id_spu)
     if not spu:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -360,12 +390,15 @@ def confirmar_recebimento_spu(
     if current_user.tipo != "ubs" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a UBS")
     
-    # ✅ BUSCAR MOVIMENTAÇÃO PRIMEIRO
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
+    # BUSCAR MOVIMENTAÇÃO PRIMEIRO
     spu = session.get(SUSParaUBS, id_spu)
     if not spu:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada")
     
-    # ✅ SÓ BUSCA UBS SE NÃO FOR ADMIN
+    # SÓ BUSCA UBS SE NÃO FOR ADMIN
     if current_user.tipo == "ubs":
         ubs = session.exec(select(UBS).where(UBS.id_usuario == current_user.id)).first()
         if not ubs:
@@ -393,6 +426,9 @@ def create_upp(
 ):
     if current_user.tipo not in ["admin", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a UBS e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "ubs":
         ubs = session.exec(select(UBS).where(UBS.id_usuario == current_user.id)).first()
@@ -411,6 +447,8 @@ def create_upp(
 
 @router_upp.get("/", response_model=List[UBSParaPaciente])
 def list_upp(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     query = select(UBSParaPaciente)
 
@@ -440,6 +478,9 @@ def get_upp(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     upp = session.get(UBSParaPaciente, id_upp)
     if not upp:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -475,6 +516,9 @@ def update_upp(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     upp = session.get(UBSParaPaciente, id_upp)
     if not upp:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -505,6 +549,9 @@ def delete_upp(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     upp = session.get(UBSParaPaciente, id_upp)
     if not upp:
         raise HTTPException(404, "Movimentação não encontrada")
@@ -532,6 +579,9 @@ def confirmar_recebimento_upp(
 ):
     if current_user.tipo != "paciente" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a pacientes")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
     
     # ✅ BUSCAR MOVIMENTAÇÃO PRIMEIRO
     upp = session.get(UBSParaPaciente, id_upp)

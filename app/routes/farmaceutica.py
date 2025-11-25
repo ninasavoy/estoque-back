@@ -15,6 +15,7 @@ def create_farmaceutica(farmaceutica: FarmaceuticaCreate,
     
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
 
     if current_user.ativo:
         raise HTTPException(status_code=400, detail="Usuário já possui uma farmacêutica cadastrada")
@@ -47,6 +48,9 @@ def list_farmaceuticas(session: Session = Depends(get_session), current_user = D
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
     
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(
             select(Farmaceutica).where(Farmaceutica.id_usuario == current_user.id)
@@ -65,6 +69,9 @@ def list_farmaceuticas(session: Session = Depends(get_session), current_user = D
 def get_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not farmaceutica:
@@ -93,6 +100,9 @@ def update_farmaceutica(
 ):
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
     
     db_farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not db_farmaceutica:
@@ -127,6 +137,10 @@ def update_farmaceutica(
 def delete_farmaceutica(farmaceutica_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
     if current_user.tipo != "farmaceutica" and current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+
     farmaceutica = session.get(Farmaceutica, farmaceutica_id)
     if not farmaceutica:
         raise HTTPException(status_code=404, detail="Farmacêutica não encontrada")

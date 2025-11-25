@@ -50,6 +50,9 @@ def list_ubs(
 ):
     if current_user.tipo not in ["admin", "sus", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "admin":
         return session.exec(select(UBS)).all()
@@ -77,6 +80,9 @@ def get_ubs(
 
     if current_user.tipo not in ["admin", "sus", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "sus":
         sus = session.exec(
@@ -104,6 +110,9 @@ def update_ubs(
 
     if current_user.tipo not in ["admin", "sus", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "ubs" and db_ubs.id_usuario != current_user.id:
         raise HTTPException(status_code=403, detail="Você só pode atualizar sua própria UBS")
@@ -140,6 +149,9 @@ def delete_ubs(
     # UBS só pode deletar a própria conta
     if current_user.tipo not in ["admin", "sus", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "sus":
         sus = session.exec(

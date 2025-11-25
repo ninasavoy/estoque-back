@@ -14,6 +14,9 @@ router = APIRouter(prefix="/medicamentos", tags=["Medicamentos"])
 def create_medicamento(medicamento: Medicamento, current_user = Depends(get_current_user), session: Session = Depends(get_session)):
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para criar medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(
@@ -41,6 +44,9 @@ def create_medicamento(medicamento: Medicamento, current_user = Depends(get_curr
 def list_medicamentos(session: Session = Depends(get_session), current_user = Depends(get_current_user)):
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para criar medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     medicamentos = session.exec(select(Medicamento)).all()
     if current_user.tipo == "farmaceutica":
@@ -62,6 +68,9 @@ def list_medicamentos(session: Session = Depends(get_session), current_user = De
 def get_medicamento(medicamento_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para criar medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     medicamento = session.get(Medicamento, medicamento_id)
     if not medicamento:
@@ -89,6 +98,9 @@ def list_medicamentos_by_farmaceutica(
 ):
     if current_user.tipo != "admin":
         raise HTTPException(status_code=403, detail="Você não tem permissão para ver estes medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     medicamentos = session.exec(
         select(Medicamento).where(Medicamento.id_farmaceutica == farmaceutica_id)
@@ -103,6 +115,9 @@ def list_medicamentos_alto_custo(
 ):
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para ver estes medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     medicamentos = session.exec(
         select(Medicamento).where(Medicamento.alto_custo == True)
@@ -141,6 +156,9 @@ def update_medicamento(
 ):
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para alterar medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     db_medicamento = session.get(Medicamento, medicamento_id)
     if not db_medicamento:
@@ -175,12 +193,16 @@ def update_medicamento(
 
 @router.delete("/{medicamento_id}")
 def delete_medicamento(medicamento_id: int, session: Session = Depends(get_session), current_user = Depends(get_current_user)):
-    medicamento = session.get(Medicamento, medicamento_id)
-    if not medicamento:
-        raise HTTPException(status_code=404, detail="Medicamento não encontrado")
 
     if current_user.tipo != "admin" and current_user.tipo != "farmaceutica":
         raise HTTPException(status_code=403, detail="Você não tem permissão para deletar medicamentos")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+
+    medicamento = session.get(Medicamento, medicamento_id)
+    if not medicamento:
+        raise HTTPException(status_code=404, detail="Medicamento não encontrado")
 
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(

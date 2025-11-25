@@ -23,6 +23,9 @@ def farmaceutica_dashboard(
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
     
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     # Se for farmacêutica, busca os dados dela
     if current_user.tipo == "farmaceutica":
         farmaceutica = session.exec(
@@ -204,6 +207,9 @@ def distribuidor_dashboard(
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores e administradores")
     
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     # Se for distribuidor, busca apenas seus dados
     if current_user.tipo == "distribuidor":
         distribuidor = session.exec(
@@ -296,6 +302,9 @@ def sus_dashboard(
     # Verifica permissão
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito ao SUS e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
     
     # Se for SUS, busca apenas seus dados
     if current_user.tipo == "sus":
@@ -418,6 +427,9 @@ def ubs_dashboard(
     if current_user.tipo not in ["admin", "ubs"]:
         raise HTTPException(status_code=403, detail="Acesso restrito à UBS e administradores")
     
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     # Se for UBS, busca apenas seus dados
     if current_user.tipo == "ubs":
         ubs = session.exec(
@@ -530,6 +542,9 @@ def paciente_dashboard(
     # Verifica permissão
     if current_user.tipo not in ["admin", "paciente"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a pacientes e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
     
     # Se for paciente, busca apenas seus dados
     if current_user.tipo == "paciente":

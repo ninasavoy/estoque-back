@@ -49,6 +49,9 @@ def list_sus(
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e SUS")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "admin":
         sus_list = session.exec(select(SUS)).all()
@@ -69,6 +72,9 @@ def get_sus(
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e SUS")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     sus = session.get(SUS, sus_id)
     if not sus:
@@ -89,6 +95,9 @@ def update_sus(
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e SUS")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     db_sus = session.get(SUS, sus_id)
     if not db_sus:
@@ -115,6 +124,9 @@ def delete_sus(
 ):
     if current_user.tipo not in ["admin", "sus"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e SUS")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     sus = session.get(SUS, sus_id)
     if not sus:

@@ -51,6 +51,9 @@ def list_pacientes(
 ):
     if current_user.tipo not in ["admin","sus", "ubs", "paciente"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a UBS, SUS, pacientes e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "admin":
         return session.exec(select(Paciente)).all()
@@ -98,6 +101,9 @@ def get_paciente(
     if current_user.tipo not in ["admin","sus", "ubs", "paciente"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a UBS, SUS, pacientes e administradores")
     
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     paciente = session.get(Paciente, paciente_id)
     if not paciente:
         raise HTTPException(status_code=404, detail="Paciente não encontrado")
@@ -142,6 +148,9 @@ def update_paciente(
 
     if current_user.tipo not in ["admin", "ubs", "paciente"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "ubs":
         ubs = session.exec(
@@ -175,6 +184,9 @@ def delete_paciente(
 
     if current_user.tipo not in ["admin", "ubs", "paciente"]:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "ubs":
         ubs = session.exec(

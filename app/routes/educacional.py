@@ -16,7 +16,7 @@ def listar_conteudos(session: Session = Depends(get_session)):
 
 @router.get("/{conteudo_id}", response_model=ConteudoEducacional)
 def obter_conteudo(conteudo_id: int, session: Session = Depends(get_session)):
-    """Retorna um conteúdo educacional específico pelo ID"""
+    
     conteudo = session.get(ConteudoEducacional, conteudo_id)
     if not conteudo:
         raise HTTPException(status_code=404, detail="Conteúdo não encontrado")
@@ -34,6 +34,9 @@ def criar_conteudo(
 ):
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     medicamento = session.get(Medicamento, id_medicamento)
     if not medicamento:
@@ -74,6 +77,9 @@ def atualizar_conteudo(
 ):
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     conteudo_obj = session.get(ConteudoEducacional, conteudo_id)
     if not conteudo_obj:
@@ -114,6 +120,9 @@ def deletar_conteudo(
 ):
     if current_user.tipo not in ["admin", "farmaceutica"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a farmacêuticas e administradores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     conteudo_obj = session.get(ConteudoEducacional, conteudo_id)
     if not conteudo_obj:

@@ -49,6 +49,9 @@ def list_distribuidores(
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     if current_user.tipo == "distribuidor":
         distribuidores = session.exec(
@@ -68,6 +71,9 @@ def get_distribuidor(
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     distribuidor = session.get(Distribuidor, distribuidor_id)
     if not distribuidor:
@@ -88,6 +94,9 @@ def update_distribuidor(
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     db_distribuidor = session.get(Distribuidor, distribuidor_id)
     if not db_distribuidor:
@@ -114,6 +123,9 @@ def delete_distribuidor(
 ):
     if current_user.tipo not in ["admin", "distribuidor"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a distribuidores")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     distribuidor = session.get(Distribuidor, distribuidor_id)
     if not distribuidor:

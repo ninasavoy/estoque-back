@@ -20,6 +20,9 @@ def create_feedback(
     # Apenas pacientes podem criar feedback
     if current_user.tipo != "paciente":
         raise HTTPException(403, "Somente pacientes podem criar feedbacks.")
+    
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
 
     paciente = session.exec(
         select(Paciente).where(Paciente.id_usuario == current_user.id)
@@ -45,6 +48,9 @@ def list_feedbacks(
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     if current_user.tipo == "admin":
         return session.exec(select(Feedback)).all()
 
@@ -87,6 +93,9 @@ def get_feedback(
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     feedback = session.get(Feedback, feedback_id)
     if not feedback:
         raise HTTPException(404, "Feedback não encontrado")
@@ -138,6 +147,9 @@ def update_feedback(
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro")
+    
     db_feedback = session.get(Feedback, feedback_id)
     if not db_feedback:
         raise HTTPException(404, "Feedback não encontrado")
@@ -173,6 +185,9 @@ def delete_feedback(
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user)
 ):
+    if not current_user.ativo:
+        raise HTTPException(status_code=403, detail="Finalize seu cadastro") 
+    
     feedback = session.get(Feedback, feedback_id)
     if not feedback:
         raise HTTPException(404, "Feedback não encontrado")
