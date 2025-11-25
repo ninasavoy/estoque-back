@@ -3,15 +3,13 @@ from sqlmodel import Session, select, func
 from typing import List
 from datetime import datetime, timedelta
 from models import (
-    SUS, UBS, ConteudoEducacional, Distribuidor, Farmaceutica, Medicamento, Lote, DistribuidorParaSUS, SUSParaUBS, 
+    SUS, UBS, ConteudoEducacional, Distribuidor, Farmaceutica, Medicamento, Lote, DistribuidorParaSUS, Paciente, SUSParaUBS, 
     UBSParaPaciente, Feedback, User
 )
 from database import get_session
 from auth.dependencies import get_current_user
 
-
 router = APIRouter(prefix="/dashboard", tags=["Dashboards"])
-
 
 @router.get("/farmaceutica/overview")
 def farmaceutica_dashboard(
@@ -228,7 +226,13 @@ def distribuidor_dashboard(
                 DistribuidorParaSUS.status == "recebido"
             )
         ).all()
-    
+        
+        # Total de entregas (histórico)
+        total_entregas = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps))
+            .where(DistribuidorParaSUS.id_distribuidor == distribuidor.id_distribuidor)
+        ).one()
+        
     else:  # Admin vê tudo
         pendentes = session.exec(
             select(DistribuidorParaSUS).where(
@@ -241,6 +245,10 @@ def distribuidor_dashboard(
                 DistribuidorParaSUS.status == "recebido"
             )
         ).all()
+        
+        total_entregas = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps))
+        ).one()
     
     # Calcula tempo médio
     tempos_entrega = []
@@ -251,17 +259,25 @@ def distribuidor_dashboard(
     
     tempo_medio = sum(tempos_entrega) / len(tempos_entrega) if tempos_entrega else 0
     
+    # Taxa de eficiência
+    taxa_entrega = round((len(concluidas) / total_entregas * 100) if total_entregas > 0 else 0, 2)
+    
     return {
         "entregas": {
             "pendentes": len(pendentes),
             "concluidas": len(concluidas),
-            "tempo_medio_dias": round(tempo_medio, 1)
+            "total_historico": total_entregas,
+            "tempo_medio_dias": round(tempo_medio, 1),
+            "taxa_eficiencia": taxa_entrega
         },
         "pendentes_detalhes": [
             {
                 "id": p.id_dps,
                 "id_lote": p.id_lote,
+                "id_sus": p.id_sus,
+                "quantidade": p.quantidade,
                 "data_envio": p.data_envio,
+                "dias_em_transito": (datetime.now() - p.data_envio).days,
                 "status": p.status
             }
             for p in pendentes[:10]
@@ -298,12 +314,27 @@ def sus_dashboard(
             )
         ).all()
         
+        # Aguardando recebimento
+        aguardando_recebimento = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps)).where(
+                DistribuidorParaSUS.id_sus == sus.id_sus,
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).one()
+        
         # Enviados para UBS
         enviados_ubs = session.exec(
             select(SUSParaUBS).where(
                 SUSParaUBS.id_sus == sus.id_sus
             )
         ).all()
+        
+        # UBS vinculadas
+        total_ubs = session.exec(
+            select(func.count(UBS.id_ubs)).where(
+                UBS.id_sus == sus.id_sus
+            )
+        ).one()
         
         # Lotes com atenção (pegando os IDs dos lotes recebidos)
         lotes_ids = [r.id_lote for r in recebidos_distribuidor]
@@ -323,9 +354,19 @@ def sus_dashboard(
             )
         ).all()
         
+        aguardando_recebimento = session.exec(
+            select(func.count(DistribuidorParaSUS.id_dps)).where(
+                DistribuidorParaSUS.status == "em transito"
+            )
+        ).one()
+        
         enviados_ubs = session.exec(
             select(SUSParaUBS)
         ).all()
+        
+        total_ubs = session.exec(
+            select(func.count(UBS.id_ubs))
+        ).one()
         
         data_limite = datetime.now() + timedelta(days=60)
         lotes_atencao = session.exec(
@@ -334,11 +375,19 @@ def sus_dashboard(
             )
         ).all()
     
+    em_estoque = len(recebidos_distribuidor) - len(enviados_ubs)
+    taxa_distribuicao = round((len(enviados_ubs) / len(recebidos_distribuidor) * 100) if recebidos_distribuidor else 0, 2)
+    
     return {
         "estoque": {
             "recebidos": len(recebidos_distribuidor),
+            "aguardando_recebimento": aguardando_recebimento,
             "distribuidos_ubs": len(enviados_ubs),
-            "em_estoque": len(recebidos_distribuidor) - len(enviados_ubs)
+            "em_estoque": max(0, em_estoque),
+            "taxa_distribuicao": taxa_distribuicao
+        },
+        "rede": {
+            "total_ubs_vinculadas": total_ubs
         },
         "alertas": {
             "lotes_vencimento_proximo": len(lotes_atencao),
@@ -378,6 +427,7 @@ def ubs_dashboard(
         if not ubs:
             raise HTTPException(status_code=404, detail="UBS não encontrada")
         
+        # Recebidos do SUS
         recebidos = session.exec(
             select(SUSParaUBS).where(
                 SUSParaUBS.id_ubs == ubs.id_ubs,
@@ -385,12 +435,35 @@ def ubs_dashboard(
             )
         ).all()
         
+        # Aguardando do SUS
+        aguardando_sus = session.exec(
+            select(func.count(SUSParaUBS.id_spu)).where(
+                SUSParaUBS.id_ubs == ubs.id_ubs,
+                SUSParaUBS.status == "em transito"
+            )
+        ).one()
+        
+        # Distribuídos aos pacientes
         distribuidos = session.exec(
             select(UBSParaPaciente).where(
                 UBSParaPaciente.id_ubs == ubs.id_ubs
             )
         ).all()
-    
+        
+        # Pacientes atendidos
+        pacientes_atendidos = session.exec(
+            select(func.count(func.distinct(UBSParaPaciente.id_paciente))).where(
+                UBSParaPaciente.id_ubs == ubs.id_ubs
+            )
+        ).one()
+        
+        # Total de pacientes cadastrados
+        total_pacientes = session.exec(
+            select(func.count(Paciente.id_paciente)).where(
+                Paciente.id_ubs == ubs.id_ubs
+            )
+        ).one()
+        
     else:  # Admin vê tudo
         recebidos = session.exec(
             select(SUSParaUBS).where(
@@ -398,15 +471,38 @@ def ubs_dashboard(
             )
         ).all()
         
+        aguardando_sus = session.exec(
+            select(func.count(SUSParaUBS.id_spu)).where(
+                SUSParaUBS.status == "em transito"
+            )
+        ).one()
+        
         distribuidos = session.exec(
             select(UBSParaPaciente)
         ).all()
+        
+        pacientes_atendidos = session.exec(
+            select(func.count(func.distinct(UBSParaPaciente.id_paciente)))
+        ).one()
+        
+        total_pacientes = session.exec(
+            select(func.count(Paciente.id_paciente))
+        ).one()
+    
+    em_estoque = len(recebidos) - len(distribuidos)
+    taxa_atendimento = round((pacientes_atendidos / total_pacientes * 100) if total_pacientes > 0 else 0, 2)
     
     return {
         "estoque": {
             "total_recebido": len(recebidos),
+            "aguardando_sus": aguardando_sus,
             "distribuido_pacientes": len(distribuidos),
-            "em_estoque": len(recebidos) - len(distribuidos)
+            "em_estoque": max(0, em_estoque)
+        },
+        "pacientes": {
+            "total_cadastrados": total_pacientes,
+            "atendidos": pacientes_atendidos,
+            "taxa_atendimento": taxa_atendimento
         },
         "distribuicoes_recentes": [
             {
@@ -414,8 +510,132 @@ def ubs_dashboard(
                 "id_paciente": d.id_paciente,
                 "id_lote": d.id_lote,
                 "data_envio": d.data_envio,
-                "status": d.status
+                "data_recebimento": d.data_recebimento,
+                "status": d.status,
+                "dias_para_entrega": (d.data_recebimento - d.data_envio).days if d.data_recebimento else None
             }
             for d in distribuidos[-10:]
         ]
+    }
+
+
+@router.get("/paciente/meus-medicamentos")
+def paciente_dashboard(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Dashboard do Paciente - Acompanhamento de medicamentos e entregas
+    """
+    # Verifica permissão
+    if current_user.tipo not in ["admin", "paciente"]:
+        raise HTTPException(status_code=403, detail="Acesso restrito a pacientes e administradores")
+    
+    # Se for paciente, busca apenas seus dados
+    if current_user.tipo == "paciente":
+        paciente = session.exec(
+            select(Paciente).where(Paciente.id_usuario == current_user.id)
+        ).first()
+        
+        if not paciente:
+            raise HTTPException(status_code=404, detail="Paciente não encontrado")
+        
+        # Medicamentos recebidos
+        medicamentos_recebidos = session.exec(
+            select(UBSParaPaciente).where(
+                UBSParaPaciente.id_paciente == paciente.id_paciente,
+                UBSParaPaciente.status == "recebido"
+            )
+        ).all()
+        
+        # Medicamentos em trânsito
+        em_transito = session.exec(
+            select(UBSParaPaciente).where(
+                UBSParaPaciente.id_paciente == paciente.id_paciente,
+                UBSParaPaciente.status == "em transito"
+            )
+        ).all()
+        
+        # Total de entregas históricas
+        total_entregas = session.exec(
+            select(func.count(UBSParaPaciente.id_upp)).where(
+                UBSParaPaciente.id_paciente == paciente.id_paciente
+            )
+        ).one()
+        
+        # Feedbacks dados pelo paciente
+        meus_feedbacks = session.exec(
+            select(func.count(Feedback.id_feedback)).where(
+                Feedback.id_paciente == paciente.id_paciente
+            )
+        ).one()
+        
+        # Detalhes dos medicamentos recebidos com informações do lote e medicamento
+        detalhes_medicamentos = []
+        for entrega in medicamentos_recebidos[-10:]:  # Últimos 10
+            lote = session.exec(
+                select(Lote).where(Lote.id_lote == entrega.id_lote)
+            ).first()
+            
+            if lote:
+                medicamento = session.exec(
+                    select(Medicamento).where(Medicamento.id_medicamento == lote.id_medicamento)
+                ).first()
+                
+                if medicamento:
+                    detalhes_medicamentos.append({
+                        "id_entrega": entrega.id_upp,
+                        "medicamento": medicamento.nome,
+                        "dosagem": medicamento.dosagem,
+                        "ingestao": medicamento.ingestao,
+                        "lote": lote.codigo_lote,
+                        "data_recebimento": entrega.data_recebimento,
+                        "data_vencimento": lote.data_vencimento,
+                        "dias_ate_vencimento": (lote.data_vencimento - datetime.now()).days
+                    })
+        
+        # Detalhes dos em trânsito
+        detalhes_transito = []
+        for entrega in em_transito:
+            lote = session.exec(
+                select(Lote).where(Lote.id_lote == entrega.id_lote)
+            ).first()
+            
+            if lote:
+                medicamento = session.exec(
+                    select(Medicamento).where(Medicamento.id_medicamento == lote.id_medicamento)
+                ).first()
+                
+                if medicamento:
+                    detalhes_transito.append({
+                        "id_entrega": entrega.id_upp,
+                        "medicamento": medicamento.nome,
+                        "dosagem": medicamento.dosagem,
+                        "lote": lote.codigo_lote,
+                        "data_envio": entrega.data_envio,
+                        "dias_em_transito": (datetime.now() - entrega.data_envio).days
+                    })
+        
+        # Informações da UBS
+        ubs_info = session.exec(
+            select(UBS).where(UBS.id_ubs == paciente.id_ubs)
+        ).first()
+        
+    else:  # Admin não tem dashboard de paciente específico
+        raise HTTPException(status_code=400, detail="Admin não possui dashboard de paciente")
+    
+    return {
+        "resumo": {
+            "total_medicamentos_recebidos": len(medicamentos_recebidos),
+            "em_transito": len(em_transito),
+            "total_entregas_historico": total_entregas,
+            "feedbacks_dados": meus_feedbacks
+        },
+        "ubs_vinculada": {
+            "nome": ubs_info.nome if ubs_info else None,
+            "endereco": ubs_info.endereco if ubs_info else None,
+            "contato": ubs_info.contato if ubs_info else None
+        },
+        "medicamentos_recebidos": detalhes_medicamentos,
+        "aguardando_entrega": detalhes_transito
     }
